@@ -64,7 +64,7 @@
 ######################################
 set opt(verbose) 		1
 set opt(trace_files)		1
-set opt(bash_parameters) 	0
+set opt(bash_parameters) 	1
 
 #####################
 # Library Loading   #
@@ -112,21 +112,23 @@ set opt(bitrate)            20768.0 ;#150000;#bitrate in bps
 set rng [new RNG]
 
 if {$opt(bash_parameters)} {
-	if {$argc != 3} {
-		puts "The script requires three inputs:"
+	if {$argc != 4} {
+		puts "The script requires four inputs:"
 		puts "- the first for the seed"
 		puts "- the second one is for the Poisson CBR period"
-		puts "- the third one is the cbr packet size (byte);"
-		puts "example: ns TDMA_exp.tcl 1 60 125"
+	        puts "- the third one is the cbr packet size (byte);"
+	        puts "- the fourth one is the distance between the nodes (m)"
+		puts "example: ns TDMA_exp.tcl 1 60 125 100"
 		puts "If you want to leave the default values, please set to 0"
 		puts "the value opt(bash_parameters) in the tcl script"
 		puts "Please try again."
 		return
 	} else {
-		set opt(seedcbr)    [lindex $argv 0]
-		set opt(cbr_period) [lindex $argv 1]
-		set opt(pktsize)    [lindex $argv 2]
-		$rng seed         $opt(seedcbr)
+	    set opt(seedcbr)    [lindex $argv 0]
+	    set opt(cbr_period) [lindex $argv 1]
+	    set opt(pktsize)    [lindex $argv 2]
+	    set opt(node_dist) [lindex $argv 3]
+	    $rng seed         $opt(seedcbr)
 	}
 } else {
 	set opt(cbr_period)     10
@@ -159,7 +161,7 @@ Module/UW/CBR set PoissonTraffic_      0
 Module/UW/CBR set debug_               0
 
 ### TDMA MAC ###
-Module/UW/TDMA set frame_duration   10
+Module/UW/TDMA set frame_duration   2
 Module/UW/TDMA set debug_           -7
 #Module/UW/TDMA set sea_trial_       1
 Module/UW/TDMA set fair_mode        1
@@ -196,7 +198,7 @@ Module/UW/PHYSICAL  set PER_target_                 0
 Module/UW/PHYSICAL  set CentralFreqOptimization_    0
 Module/UW/PHYSICAL  set BandwidthOptimization_      0
 Module/UW/PHYSICAL  set SPLOptimization_            0
-Module/UW/PHYSICAL  set debug_                      0
+Module/UW/PHYSICAL  set debug_                      1
 
 ################################
 # Procedure(s) to create nodes #
@@ -253,14 +255,14 @@ proc createNode { id } {
     $node($id) addPosition $position($id)
     
     #Setup positions
-    $position($id) setX_ [expr $id*100]
-    $position($id) setY_ 0;#[expr $id*20]
+    $position($id) setX_ [expr {$id * $opt(node_dist) / sqrt(2) }]
+    $position($id) setY_ [expr {$id * $opt(node_dist) / sqrt(2) }]
     $position($id) setZ_ -100
 
     #Interference model
     set interf_data($id)  [new "Module/UW/INTERFERENCE"]
     $interf_data($id) set maxinterval_ $opt(maxinterval_)
-    $interf_data($id) set debug_       0
+    $interf_data($id) set debug_       -7
 
     #Propagation model
     $phy($id) setPropagation $propagation
