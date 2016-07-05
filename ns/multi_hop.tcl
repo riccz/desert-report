@@ -96,11 +96,10 @@ $ns use-Miracle
 ##################
 set opt(start_clock) [clock seconds]
 
-#set opt(pktsize)            125  ;# Pkt sike in byte
 set opt(starttime)          1	
 set opt(stoptime)           101 
 set opt(txduration)         [expr $opt(stoptime) - $opt(starttime)] ;# Duration of the simulation
-#set opt(ack_mode)           "setNoAckMode"
+
 set opt(maxinterval_)       10.0
 
 set opt(freq)              10000000
@@ -122,12 +121,9 @@ set opt(LUTpath)           "dbs/optical_noise/LUT.txt"
 set rng [new RNG]
 
 if {$opt(bash_parameters)} {
-	if {$argc != 5} {
-		puts "The script requires three inputs:"
-		puts "- the first for the seed"
-		puts "- the second one is for the Poisson CBR period"
-		puts "- the third one is the cbr packet size (byte);"
-		puts "example: ns test_uw_csma_aloha_simple.tcl 1 60 125"
+	if {$argc != 7} {
+		puts "The script requires 7 inputs:"
+		puts "ns nhops_optical.tcl <seed> <packet period> <packet length> <src-dst distance> <num. of nodes> <num. of slots> <guard interval>"
 		puts "If you want to leave the default values, please set to 0"
 		puts "the value opt(bash_parameters) in the tcl script"
 		puts "Please try again."
@@ -138,13 +134,23 @@ if {$opt(bash_parameters)} {
 	    set opt(pktsize)    [lindex $argv 2]
 	    set opt(tot_dist)   [lindex $argv 3]
 	    set opt(nn)         [lindex $argv 4]
+	    set opt(num_slots)  [lindex $argv 5]
+	    set opt(guard_time)  [lindex $argv 6]
 	    $rng seed         $opt(seedcbr)
 	}
 } else {
-	set opt(cbr_period) 0.1
-	set opt(pktsize)	125
-	set opt(seedcbr)	1
+    set opt(seedcbr)    1
+    set opt(cbr_period) [expr 1e-3]
+    set opt(pktsize)    1000
+    set opt(tot_dist)   100
+    set opt(nn)         21
+    set opt(num_slots)  5
+    set opt(guard_time)  0.001
+    $rng seed         $opt(seedcbr)
 }
+
+set packet_time [expr $opt(pktsize) * 8.0 / $opt(bitrate)]
+set opt(frame_duration) [expr ($packet_time + $opt(guard_time)) * $opt(num_slots)]
 
 set rnd_gen [new RandomVariable/Uniform]
 $rnd_gen use-rng $rng
@@ -159,11 +165,6 @@ if {$opt(trace_files)} {
 	set opt(cltracefilename) "/dev/null"
 	set opt(cltracefile) [open $opt(cltracefilename) w]
 }
-
-set opt(frame_duration)    1
-set opt(num_slots)         10;#$opt(nn)
-set opt(guard_time)        0.01
-
 
 #########################
 # Module Configuration  #
@@ -182,7 +183,8 @@ Module/UW/OPTICAL/PHY   set R_                          $opt(shuntRes)
 Module/UW/OPTICAL/PHY   set S_                          $opt(sensitivity)
 Module/UW/OPTICAL/PHY   set T_                          $opt(temperatura)
 Module/UW/OPTICAL/PHY   set Ar_                         $opt(rxArea)
-Module/UW/OPTICAL/PHY   set debug_                      -7
+#Module/UW/OPTICAL/PHY   set debug_                      -7
+#Module/UW/OPTICAL/PHY   set interference_threshold_     1e-15
 
 Module/UW/OPTICAL/Propagation set Ar_       $opt(rxArea)
 Module/UW/OPTICAL/Propagation set At_       $opt(txArea)
@@ -194,22 +196,20 @@ $propagation setOmnidirectional
 
 set channel [new Module/UW/Optical/Channel]
 
-
 set data_mask [new MSpectralMask/Rect]
 $data_mask setFreq       $opt(freq)
 $data_mask setBandwidth  $opt(bw)
 
 Module/UW/TDMA set frame_duration $opt(frame_duration)
-#Module/UW/TDMA set debug_ -7
 Module/UW/TDMA set fair_mode 1
 Module/UW/TDMA set tot_slots $opt(num_slots)
 Module/UW/TDMA set guard_time $opt(guard_time)
+#Module/UW/TDMA set debug_ -7
 
 ################################
 # Procedure(s) to create nodes #
 ################################
 proc createNode { id } {
-
     global channel ns cbr position node udp portnum ipr ipif
     global opt mll mac propagation data_mask
     
@@ -243,14 +243,13 @@ proc createNode { id } {
     $phy($id) setLUTFileName "$opt(LUTpath)"
     $phy($id) setLUTSeparator " "
     $phy($id) useLUT
+    $phy($id) setInterferenceModel "OOK"
+
 
     $ipif($id) addr [expr $id +1]
 
     $mac($id) setMacAddr [expr $id + 5]
     $mac($id) setSlotNumber [expr $id % $opt(num_slots)]
-    
-    set position($id) [new "Position/BM"]
-    $node($id) addPosition $position($id)
 }
 
 proc makeSourceNode { id } {
@@ -299,8 +298,6 @@ makeDestNode $dst_id
 $cbr($src_id) set destAddr_ [$ipif($dst_id) addr]
 $cbr($src_id) set destPort_ $portnum($dst_id)
 
-# Also dst -> src?
-
 ###################
 # Fill ARP tables #
 ###################
@@ -317,9 +314,12 @@ for {set id 0} {$id < [expr $opt(nn) - 1]} {incr id}  {
     $ipr($id) addRoute [$ipif([expr $dst_id]) addr] [$ipif([expr $id+1]) addr]
 }
 
-# Positions
+# Node positions
 set internode_dist [expr $opt(tot_dist) / ($opt(nn) - 1.0)]
-for {set id 0} {$id < $opt(nn)} {incr id} {    
+for {set id 0} {$id < $opt(nn)} {incr id} {        
+    set position($id) [new "Position/BM"]
+    $node($id) addPosition $position($id)
+    
     $position($id) setZ_ -10
     $position($id) setX_ [expr {$id * $internode_dist}]
     $position($id) setY_ 0    
@@ -328,16 +328,6 @@ for {set id 0} {$id < $opt(nn)} {incr id} {
 #####################
 # Start/Stop Timers #
 #####################
-# Set here the timers to start and/or stop the timers
-# for {set id1 0} {$id1 < $opt(nn)} {incr id1}  {
-# 	for {set id2 0} {$id2 < $opt(nn)} {incr id2} {
-# 		if {$id1 != $id2} {
-# 			$ns at $opt(starttime)    "$cbr($id1,$id2) start"
-# 			$ns at $opt(stoptime)     "$cbr($id1,$id2) stop"
-# 		}
-# 	}
-# }
-
 for {set i 0} {$i < $opt(nn)} {incr i} {
     $ns at $opt(starttime)    "$mac($i) start"
     $ns at $opt(stoptime)     "$mac($i) stop"
@@ -370,8 +360,10 @@ proc finish {} {
         puts "cbr period       : $opt(cbr_period) s"
         puts "TDMA frame       : $opt(frame_duration) s"
 	puts "TDMA slots       : $opt(num_slots)"
+	puts "TDMA guard time  : $opt(guard_time) s"
         puts "---------------------------------------------------------------------"
     }
+    
     if ($opt(verbose)) {
 	puts "Node positions (x, y, z)"
 	for {set id 0} {$id < $opt(nn)} {incr id} {
@@ -387,27 +379,44 @@ proc finish {} {
     set tdma_sent_pkts_sum 0.0
     set tdma_recv_pkts_sum 0.0
     for {set i 0} {$i < $opt(nn)} {incr i} {
-	set tdma_sent_pkts($i) [$mac($i) get_sent_pkts]
-	set tdma_recv_pkts($i) [$mac($i) get_recv_pkts]
+	set tdma_sent_pkts($i) [expr 0.0 + [$mac($i) get_sent_pkts]]
+	set tdma_recv_pkts($i) [expr 0.0 + [$mac($i) get_recv_pkts]]
 	set tdma_sent_pkts_sum [expr $tdma_sent_pkts_sum + $tdma_sent_pkts($i)]
 	set tdma_recv_pkts_sum [expr $tdma_recv_pkts_sum + $tdma_recv_pkts($i)]
     }
+
+    if {$tdma_sent_pkts_sum > 0} {
+	set tdma_per [expr 1 - $tdma_recv_pkts_sum/$tdma_sent_pkts_sum]
+    } else {
+	set tdma_per NaN
+    }
+
+    if {$tdma_sent_pkts($src_id) > 0} {
+	set tdma_per_srcdst [expr 1 - $tdma_recv_pkts($dst_id)/$tdma_sent_pkts($src_id)]
+    } else {
+	set tdma_per_srcdst NaN
+    }
     
     if ($opt(verbose)) {
-        puts "Throughput               : [expr $cbr_throughput] bit/s"
-        puts "Sent Packets             : $cbr_sent_pkts"
-        puts "Received Packets         : $cbr_rcv_pkts"
-	puts "Packet error rate        : [expr 1 - $tdma_recv_pkts_sum/$tdma_sent_pkts_sum]"
+        puts "Throughput               \t: [expr $cbr_throughput] bit/s"
+        puts "Sent Packets             \t: $cbr_sent_pkts"
+        puts "Received Packets         \t: $cbr_rcv_pkts"
+	puts "Global packet error rate\t: $tdma_per"
+	puts "src -> dst packet error rate\t: $tdma_per_srcdst"
+	puts "---------------------------------------------------------------------"
     }
 
     if ($opt(verbose)) {
-	puts "Packets delivery ratio per link"
+	puts "Packet error rate per hop"
 	for {set i 1} {$i < $opt(nn)} {incr i} {
-	    set pdr [expr $tdma_recv_pkts($i) / ($tdma_sent_pkts([expr $i - 1]) + 0.0)]
-	    puts "[expr $i - 1] -> $i : $pdr"
+	    if {$tdma_sent_pkts([expr $i - 1]) > 0} {
+		set per [expr 1 - $tdma_recv_pkts($i) / $tdma_sent_pkts([expr $i - 1])]
+	    } else {
+		set per NaN
+	    }
+	    puts "Node [expr $i-1] -> Node $i\t: $per"
 	}
     }
-
     
     $ns flush-trace
     close $opt(tracefile)
