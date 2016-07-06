@@ -346,11 +346,14 @@ for {set id 0} {$id < $opt(nn)} {incr id} {
 #####################
 for {set i 0} {$i < $opt(nn)} {incr i} {
 	$ns at $opt(starttime)    "$mac($i) start"
-	$ns at $opt(stoptime)     "$mac($i) stop"
+	if {$i != $src_id} {
+		$ns at [expr $opt(stoptime) + 245]     "$mac($i) stop"
+	}
 }
 
 $ns at $opt(starttime)    "$cbr($src_id) start"
 $ns at $opt(stoptime)     "$cbr($src_id) stop"
+$ns at $opt(stoptime)     "$mac($src_id) stop"
 
 
 ###################
