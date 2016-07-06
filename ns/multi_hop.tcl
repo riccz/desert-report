@@ -118,6 +118,10 @@ set opt(shuntRes)          [expr 1.49e9]
 set opt(sensitivity)       0.26
 set opt(LUTpath)           "dbs/optical_noise/LUT.txt"
 
+set opt(use_reed_solomon) 1
+set opt(rs_n) 7
+set opt(rs_k) 5
+
 set rng [new RNG]
 
 if {$opt(bash_parameters)} {
@@ -149,7 +153,12 @@ if {$opt(bash_parameters)} {
     $rng seed         $opt(seedcbr)
 }
 
-set packet_time [expr $opt(pktsize) * 8.0 / $opt(bitrate)]
+# Set the slot duration to transmit exactly one packet (with headers + coding)
+set packet_header_size 4
+set packet_time [expr ($opt(pktsize) + $packet_header_size) * 8.0 / $opt(bitrate)]
+if $opt(use_reed_solomon) {
+	set packet_time [expr $packet_time * $opt(rs_n) / $opt(rs_k)] 
+}
 set opt(frame_duration) [expr ($packet_time + $opt(guard_time)) * $opt(num_slots)]
 
 set rnd_gen [new RandomVariable/Uniform]
@@ -185,6 +194,9 @@ Module/UW/OPTICAL/PHY   set T_                          $opt(temperatura)
 Module/UW/OPTICAL/PHY   set Ar_                         $opt(rxArea)
 #Module/UW/OPTICAL/PHY   set debug_                      -7
 #Module/UW/OPTICAL/PHY   set interference_threshold_     1e-15
+Module/UW/OPTICAL/PHY set use_reed_solomon $opt(use_reed_solomon)
+Module/UW/OPTICAL/PHY set rs_n $opt(rs_n)
+Module/UW/OPTICAL/PHY set rs_k $opt(rs_k)
 
 Module/UW/OPTICAL/Propagation set Ar_       $opt(rxArea)
 Module/UW/OPTICAL/Propagation set At_       $opt(txArea)
@@ -204,6 +216,9 @@ Module/UW/TDMA set frame_duration $opt(frame_duration)
 Module/UW/TDMA set fair_mode 1
 Module/UW/TDMA set tot_slots $opt(num_slots)
 Module/UW/TDMA set guard_time $opt(guard_time)
+Module/UW/TDMA set use_reed_solomon $opt(use_reed_solomon)
+Module/UW/TDMA set rs_n $opt(rs_n)
+Module/UW/TDMA set rs_k $opt(rs_k)
 #Module/UW/TDMA set debug_ -7
 
 ################################
@@ -342,54 +357,56 @@ $ns at $opt(stoptime)     "$cbr($src_id) stop"
 ###################
 # Define here the procedure to call at the end of the simulation
 proc finish {} {
-    global ns opt outfile
-    global mac propagation phy_data phy_data_sink channel db_manager propagation
-    global node_coordinates
-    global ipr_sink ipr ipif udp cbr phy phy_data_sink
-    global node_stats tmp_node_stats sink_stats tmp_sink_stats
+	global ns opt outfile
+	global mac propagation phy_data phy_data_sink channel db_manager propagation
+	global node_coordinates
+	global ipr_sink ipr ipif udp cbr phy phy_data_sink
+	global node_stats tmp_node_stats sink_stats tmp_sink_stats
 
-    global src_id dst_id
-    global position
+	global src_id dst_id
+	global position
+	global packet_time
 
-    if ($opt(verbose)) {
-        puts "---------------------------------------------------------------------"
-        puts "Simulation summary"
-	puts "src-dst distance : $opt(tot_dist) m"
-        puts "number of nodes  : $opt(nn)"
-        puts "packet size      : $opt(pktsize) byte"
-        puts "cbr period       : $opt(cbr_period) s"
-        puts "TDMA frame       : $opt(frame_duration) s"
-	puts "TDMA slots       : $opt(num_slots)"
-	puts "TDMA guard time  : $opt(guard_time) s"
-        puts "---------------------------------------------------------------------"
-    }
-    
-    if ($opt(verbose)) {
-	puts "Node positions (x, y, z)"
-	for {set id 0} {$id < $opt(nn)} {incr id} {
-	    puts "Node $id : \([$position($id) getX_], [$position($id) getY_], [$position($id) getZ_]\)"
+	if ($opt(verbose)) {
+		puts "---------------------------------------------------------------------"
+		puts "Simulation summary"
+		puts "src-dst distance : $opt(tot_dist) m"
+		puts "number of nodes  : $opt(nn)"
+		puts "packet size      : $opt(pktsize) byte"
+		puts "cbr period       : $opt(cbr_period) s"
+		puts "packet time      : $packet_time"
+		puts "TDMA frame       : $opt(frame_duration) s"
+		puts "TDMA slots       : $opt(num_slots)"
+		puts "TDMA guard time  : $opt(guard_time) s"
+		puts "---------------------------------------------------------------------"
 	}
-	puts "---------------------------------------------------------------------"
-    }
-    
-    set cbr_throughput [$cbr($dst_id) getthr]
-    set cbr_sent_pkts [$cbr($src_id) getsentpkts]
-    set cbr_rcv_pkts [$cbr($dst_id) getrecvpkts]
-    
-    set tdma_sent_pkts_sum 0.0
-    set tdma_recv_pkts_sum 0.0
-    for {set i 0} {$i < $opt(nn)} {incr i} {
-	set tdma_sent_pkts($i) [expr 0.0 + [$mac($i) get_sent_pkts]]
-	set tdma_recv_pkts($i) [expr 0.0 + [$mac($i) get_recv_pkts]]
-	set tdma_sent_pkts_sum [expr $tdma_sent_pkts_sum + $tdma_sent_pkts($i)]
-	set tdma_recv_pkts_sum [expr $tdma_recv_pkts_sum + $tdma_recv_pkts($i)]
-    }
+	
+	if ($opt(verbose)) {
+		puts "Node positions (x, y, z)"
+		for {set id 0} {$id < $opt(nn)} {incr id} {
+			puts "Node $id : \([$position($id) getX_], [$position($id) getY_], [$position($id) getZ_]\)"
+		}
+		puts "---------------------------------------------------------------------"
+	}
+	
+	set cbr_throughput [$cbr($dst_id) getthr]
+	set cbr_sent_pkts [$cbr($src_id) getsentpkts]
+	set cbr_rcv_pkts [$cbr($dst_id) getrecvpkts]
+	
+	set tdma_sent_pkts_sum 0.0
+	set tdma_recv_pkts_sum 0.0
+	for {set i 0} {$i < $opt(nn)} {incr i} {
+		set tdma_sent_pkts($i) [expr 0.0 + [$mac($i) get_sent_pkts]]
+		set tdma_recv_pkts($i) [expr 0.0 + [$mac($i) get_recv_pkts]]
+		set tdma_sent_pkts_sum [expr $tdma_sent_pkts_sum + $tdma_sent_pkts($i)]
+		set tdma_recv_pkts_sum [expr $tdma_recv_pkts_sum + $tdma_recv_pkts($i)]
+	}
 
-    if {$tdma_sent_pkts_sum > 0} {
-	set tdma_per [expr 1 - $tdma_recv_pkts_sum/$tdma_sent_pkts_sum]
-    } else {
-	set tdma_per NaN
-    }
+	if {$tdma_sent_pkts_sum > 0} {
+		set tdma_per [expr 1 - $tdma_recv_pkts_sum/$tdma_sent_pkts_sum]
+	} else {
+		set tdma_per NaN
+	}
 
     if {$tdma_sent_pkts($src_id) > 0} {
 	set tdma_per_srcdst [expr 1 - $tdma_recv_pkts($dst_id)/$tdma_sent_pkts($src_id)]
