@@ -1,3 +1,4 @@
+# -*- mode: tcl; indent-tabs-mode: t; tab-width: 8; tcl-indent-level: 8; tcl-continued-indent-level: 8; -*-
 #
 # Copyright (c) 2015 Regents of the SIGNET lab, University of Padova.
 # All rights reserved.
@@ -133,24 +134,24 @@ if {$opt(bash_parameters)} {
 		puts "Please try again."
 		return
 	} else {
-	    set opt(seedcbr)    [lindex $argv 0]
-	    set opt(cbr_period) [lindex $argv 1]
-	    set opt(pktsize)    [lindex $argv 2]
-	    set opt(tot_dist)   [lindex $argv 3]
-	    set opt(nn)         [lindex $argv 4]
-	    set opt(num_slots)  [lindex $argv 5]
-	    set opt(guard_time)  [lindex $argv 6]
-	    $rng seed         $opt(seedcbr)
+		set opt(seedcbr)    [lindex $argv 0]
+		set opt(cbr_period) [lindex $argv 1]
+		set opt(pktsize)    [lindex $argv 2]
+		set opt(tot_dist)   [lindex $argv 3]
+		set opt(nn)         [lindex $argv 4]
+		set opt(num_slots)  [lindex $argv 5]
+		set opt(guard_time)  [lindex $argv 6]
+		$rng seed         $opt(seedcbr)
 	}
 } else {
-    set opt(seedcbr)    1
-    set opt(cbr_period) [expr 1e-3]
-    set opt(pktsize)    1000
-    set opt(tot_dist)   100
-    set opt(nn)         21
-    set opt(num_slots)  5
-    set opt(guard_time)  0.001
-    $rng seed         $opt(seedcbr)
+	set opt(seedcbr)    1
+	set opt(cbr_period) [expr 1e-3]
+	set opt(pktsize)    1000
+	set opt(tot_dist)   100
+	set opt(nn)         21
+	set opt(num_slots)  5
+	set opt(guard_time)  0.001
+	$rng seed         $opt(seedcbr)
 }
 
 # Set the slot duration to transmit exactly one packet (with headers + coding)
@@ -225,74 +226,74 @@ Module/UW/TDMA set rs_k $opt(rs_k)
 # Procedure(s) to create nodes #
 ################################
 proc createNode { id } {
-    global channel ns cbr position node udp portnum ipr ipif
-    global opt mll mac propagation data_mask
-    
-    set node($id) [$ns create-M_Node $opt(tracefile) $opt(cltracefile)] 
+	global channel ns cbr position node udp portnum ipr ipif
+	global opt mll mac propagation data_mask
+	
+	set node($id) [$ns create-M_Node $opt(tracefile) $opt(cltracefile)] 
 
-    set ipr($id)  [new Module/UW/StaticRouting]
-    set ipif($id) [new Module/UW/IP]
-    set mll($id)  [new Module/UW/MLL] 
-    set mac($id)  [new Module/UW/TDMA] 
-    set phy($id)  [new Module/UW/OPTICAL/PHY]
-	    
-    $node($id) addModule 5 $ipr($id)   1  "IPR"
-    $node($id) addModule 4 $ipif($id)  1  "IPF"   
-    $node($id) addModule 3 $mll($id)   1  "MLL"
-    $node($id) addModule 2 $mac($id)   1  "MAC"
-    $node($id) addModule 1 $phy($id)   1  "PHY"
+	set ipr($id)  [new Module/UW/StaticRouting]
+	set ipif($id) [new Module/UW/IP]
+	set mll($id)  [new Module/UW/MLL] 
+	set mac($id)  [new Module/UW/TDMA] 
+	set phy($id)  [new Module/UW/OPTICAL/PHY]
+	
+	$node($id) addModule 5 $ipr($id)   1  "IPR"
+	$node($id) addModule 4 $ipif($id)  1  "IPF"   
+	$node($id) addModule 3 $mll($id)   1  "MLL"
+	$node($id) addModule 2 $mac($id)   1  "MAC"
+	$node($id) addModule 1 $phy($id)   1  "PHY"
 
-    $node($id) setConnection $ipr($id)   $ipif($id)  1
-    $node($id) setConnection $ipif($id)  $mll($id)   1
-    $node($id) setConnection $mll($id)   $mac($id)   1
-    $node($id) setConnection $mac($id)   $phy($id)   1
-    $node($id) addToChannel  $channel    $phy($id)   1
+	$node($id) setConnection $ipr($id)   $ipif($id)  1
+	$node($id) setConnection $ipif($id)  $mll($id)   1
+	$node($id) setConnection $mll($id)   $mac($id)   1
+	$node($id) setConnection $mac($id)   $phy($id)   1
+	$node($id) addToChannel  $channel    $phy($id)   1
 
-    set interf_data($id) [new "MInterference/MIV"]
-    $interf_data($id) set maxinterval_ $opt(maxinterval_)
-    #$interf_data($id) set debug_       -7
+	set interf_data($id) [new "MInterference/MIV"]
+	$interf_data($id) set maxinterval_ $opt(maxinterval_)
+	#$interf_data($id) set debug_       -7
 
-    $phy($id) setInterference $interf_data($id)
-    $phy($id) setPropagation $propagation
-    $phy($id) setSpectralMask $data_mask
-    $phy($id) setLUTFileName "$opt(LUTpath)"
-    $phy($id) setLUTSeparator " "
-    $phy($id) useLUT
-    $phy($id) setInterferenceModel "OOK"
+	$phy($id) setInterference $interf_data($id)
+	$phy($id) setPropagation $propagation
+	$phy($id) setSpectralMask $data_mask
+	$phy($id) setLUTFileName "$opt(LUTpath)"
+	$phy($id) setLUTSeparator " "
+	$phy($id) useLUT
+	$phy($id) setInterferenceModel "OOK"
 
 
-    $ipif($id) addr [expr $id +1]
+	$ipif($id) addr [expr $id +1]
 
-    $mac($id) setMacAddr [expr $id + 5]
-    $mac($id) setSlotNumber [expr $id % $opt(num_slots)]
+	$mac($id) setMacAddr [expr $id + 5]
+	$mac($id) setSlotNumber [expr $id % $opt(num_slots)]
 }
 
 proc makeSourceNode { id } {
-    global node cbr udp portnum ipr
-    
-    set cbr($id)  [new Module/UW/CBR]
-    set udp($id)  [new Module/UW/UDP]
+	global node cbr udp portnum ipr
+	
+	set cbr($id)  [new Module/UW/CBR]
+	set udp($id)  [new Module/UW/UDP]
 
-    $node($id) addModule 7 $cbr($id)   1  "CBR_source"
-    $node($id) addModule 6 $udp($id)   1  "UDP"
+	$node($id) addModule 7 $cbr($id)   1  "CBR_source"
+	$node($id) addModule 6 $udp($id)   1  "UDP"
 
-    $node($id) setConnection $cbr($id)   $udp($id)   1
-    set portnum($id) [$udp($id) assignPort $cbr($id) ]
-    $node($id) setConnection $udp($id)   $ipr($id)   1
+	$node($id) setConnection $cbr($id)   $udp($id)   1
+	set portnum($id) [$udp($id) assignPort $cbr($id) ]
+	$node($id) setConnection $udp($id)   $ipr($id)   1
 }
 
 proc makeDestNode { id } {
-    global node cbr udp portnum ipr
-    
-    set cbr($id)  [new Module/UW/CBR]
-    set udp($id)  [new Module/UW/UDP]
+	global node cbr udp portnum ipr
+	
+	set cbr($id)  [new Module/UW/CBR]
+	set udp($id)  [new Module/UW/UDP]
 
-    $node($id) addModule 7 $cbr($id)   1  "CBR_sink"
-    $node($id) addModule 6 $udp($id)   1  "UDP"
+	$node($id) addModule 7 $cbr($id)   1  "CBR_sink"
+	$node($id) addModule 6 $udp($id)   1  "UDP"
 
-    $node($id) setConnection $cbr($id)   $udp($id)   1
-    set portnum($id) [$udp($id) assignPort $cbr($id) ]
-    $node($id) setConnection $udp($id)   $ipr($id)   1
+	$node($id) setConnection $cbr($id)   $udp($id)   1
+	set portnum($id) [$udp($id) assignPort $cbr($id) ]
+	$node($id) setConnection $udp($id)   $ipr($id)   1
 }
 
 #################
@@ -300,7 +301,7 @@ proc makeDestNode { id } {
 #################
 # Create here all the nodes you want to network together
 for {set id 0} {$id < $opt(nn)} {incr id}  {
-    createNode $id
+	createNode $id
 }
 set src_id 0
 set dst_id [expr $opt(nn) - 1]
@@ -317,8 +318,8 @@ $cbr($src_id) set destPort_ $portnum($dst_id)
 # Fill ARP tables #
 ###################
 for {set id1 0} {$id1 < $opt(nn)} {incr id1}  {
-    for {set id2 0} {$id2 < $opt(nn)} {incr id2}  {
-      $mll($id1) addentry [$ipif($id2) addr] [$mac($id2) addr]
+	for {set id2 0} {$id2 < $opt(nn)} {incr id2}  {
+		$mll($id1) addentry [$ipif($id2) addr] [$mac($id2) addr]
 	}
 }
 
@@ -326,26 +327,26 @@ for {set id1 0} {$id1 < $opt(nn)} {incr id1}  {
 # Routing tables #
 ##################
 for {set id 0} {$id < [expr $opt(nn) - 1]} {incr id}  {
-    $ipr($id) addRoute [$ipif([expr $dst_id]) addr] [$ipif([expr $id+1]) addr]
+	$ipr($id) addRoute [$ipif([expr $dst_id]) addr] [$ipif([expr $id+1]) addr]
 }
 
 # Node positions
 set internode_dist [expr $opt(tot_dist) / ($opt(nn) - 1.0)]
 for {set id 0} {$id < $opt(nn)} {incr id} {        
-    set position($id) [new "Position/BM"]
-    $node($id) addPosition $position($id)
-    
-    $position($id) setZ_ -10
-    $position($id) setX_ [expr {$id * $internode_dist}]
-    $position($id) setY_ 0    
+	set position($id) [new "Position/BM"]
+	$node($id) addPosition $position($id)
+	
+	$position($id) setZ_ -10
+	$position($id) setX_ [expr {$id * $internode_dist}]
+	$position($id) setY_ 0    
 }
 
 #####################
 # Start/Stop Timers #
 #####################
 for {set i 0} {$i < $opt(nn)} {incr i} {
-    $ns at $opt(starttime)    "$mac($i) start"
-    $ns at $opt(stoptime)     "$mac($i) stop"
+	$ns at $opt(starttime)    "$mac($i) start"
+	$ns at $opt(stoptime)     "$mac($i) stop"
 }
 
 $ns at $opt(starttime)    "$cbr($src_id) start"
@@ -444,7 +445,7 @@ proc finish {} {
 # start simulation
 ###################
 if ($opt(verbose)) {
-    puts "\nStarting Simulation\n"
+	puts "\nStarting Simulation\n"
 }
 
 
