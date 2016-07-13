@@ -119,9 +119,14 @@ set opt(shuntRes)          [expr 1.49e9]
 set opt(sensitivity)       0.26
 set opt(LUTpath)           "dbs/optical_noise/LUT.txt"
 
-set opt(use_reed_solomon) 1
+set opt(use_reed_solomon) 0
 set opt(rs_n) 7
 set opt(rs_k) 5
+
+set opt(use_arq) 1
+set opt(use_rtt_timeout) 1
+set opt(cbr_timeout) 1.0
+set opt(cbr_window) 100
 
 set rng [new RNG]
 
@@ -155,8 +160,13 @@ if {$opt(bash_parameters)} {
 }
 
 # Set the slot duration to transmit exactly one packet (with headers + coding)
-set packet_header_size 4
+# and one ACK if ARQ is enabled
+set packet_header_size 4; #UDP only
+set ack_size [expr 12+4]; # CBR header + UDP
 set packet_time [expr ($opt(pktsize) + $packet_header_size) * 8.0 / $opt(bitrate)]
+if $opt(use_arq) {
+	set packet_time [expr $packet_time + $ack_size * 8.0 / $opt(bitrate)]
+}
 if $opt(use_reed_solomon) {
 	set packet_time [expr $packet_time * $opt(rs_n) / $opt(rs_k)] 
 }
@@ -182,7 +192,12 @@ if {$opt(trace_files)} {
 Module/UW/CBR set packetSize_          $opt(pktsize)
 Module/UW/CBR set period_              $opt(cbr_period)
 Module/UW/CBR set PoissonTraffic_      1
-#Module/UW/CBR set debug_               -7
+Module/UW/CBR set use_arq              $opt(use_arq)
+Module/UW/CBR set tx_window            $opt(cbr_window)
+Module/UW/CBR set rx_window            $opt(cbr_window)
+Module/UW/CBR set timeout_             $opt(cbr_timeout)
+Module/UW/CBR set use_rtt_timeout      $opt(use_rtt_timeout)
+#Module/UW/CBR set debug_               100
 
 Module/UW/OPTICAL/PHY   set TxPower_                    $opt(txpower)
 Module/UW/OPTICAL/PHY   set BitRate_                    $opt(bitrate)
@@ -217,9 +232,6 @@ Module/UW/TDMA set frame_duration $opt(frame_duration)
 Module/UW/TDMA set fair_mode 1
 Module/UW/TDMA set tot_slots $opt(num_slots)
 Module/UW/TDMA set guard_time $opt(guard_time)
-Module/UW/TDMA set use_reed_solomon $opt(use_reed_solomon)
-Module/UW/TDMA set rs_n $opt(rs_n)
-Module/UW/TDMA set rs_k $opt(rs_k)
 #Module/UW/TDMA set debug_ -7
 
 ################################
@@ -268,13 +280,15 @@ proc createNode { id } {
 	$mac($id) setSlotNumber [expr $id % $opt(num_slots)]
 }
 
-proc makeSourceNode { id } {
+proc createSourceNode { id } {
+	createNode $id
+	
 	global node cbr udp portnum ipr
 	
 	set cbr($id)  [new Module/UW/CBR]
 	set udp($id)  [new Module/UW/UDP]
 
-	$node($id) addModule 7 $cbr($id)   1  "CBR_source"
+	$node($id) addModule 7 $cbr($id)   1  "CBR"
 	$node($id) addModule 6 $udp($id)   1  "UDP"
 
 	$node($id) setConnection $cbr($id)   $udp($id)   1
@@ -282,13 +296,15 @@ proc makeSourceNode { id } {
 	$node($id) setConnection $udp($id)   $ipr($id)   1
 }
 
-proc makeDestNode { id } {
+proc createSinkNode { id } {
+	createNode $id
+	
 	global node cbr udp portnum ipr
 	
 	set cbr($id)  [new Module/UW/CBR]
 	set udp($id)  [new Module/UW/UDP]
 
-	$node($id) addModule 7 $cbr($id)   1  "CBR_sink"
+	$node($id) addModule 7 $cbr($id)   1  "CBR"
 	$node($id) addModule 6 $udp($id)   1  "UDP"
 
 	$node($id) setConnection $cbr($id)   $udp($id)   1
@@ -300,19 +316,21 @@ proc makeDestNode { id } {
 # Node Creation #
 #################
 # Create here all the nodes you want to network together
-for {set id 0} {$id < $opt(nn)} {incr id}  {
+set src_id 0
+createSourceNode $src_id
+
+for {set id 1} {$id < [expr $opt(nn)-1]} {incr id}  {
 	createNode $id
 }
-set src_id 0
-set dst_id [expr $opt(nn) - 1]
-makeSourceNode $src_id
-makeDestNode $dst_id
+
+set sink_id [expr $opt(nn) - 1]
+createSinkNode $sink_id
 
 ################################
 # Inter-node module connection #
 ################################
-$cbr($src_id) set destAddr_ [$ipif($dst_id) addr]
-$cbr($src_id) set destPort_ $portnum($dst_id)
+$cbr($src_id) set destAddr_ [$ipif($sink_id) addr]
+$cbr($src_id) set destPort_ $portnum($sink_id)
 
 ###################
 # Fill ARP tables #
@@ -326,11 +344,20 @@ for {set id1 0} {$id1 < $opt(nn)} {incr id1}  {
 ##################
 # Routing tables #
 ##################
+
+# Source -> Sink
 for {set id 0} {$id < [expr $opt(nn) - 1]} {incr id}  {
-	$ipr($id) addRoute [$ipif([expr $dst_id]) addr] [$ipif([expr $id+1]) addr]
+	$ipr($id) addRoute [$ipif([expr $sink_id]) addr] [$ipif([expr $id+1]) addr]
 }
 
-# Node positions
+# Sink -> Source
+for {set id 1} {$id < [expr $opt(nn)]} {incr id}  {
+	$ipr($id) addRoute [$ipif([expr $src_id]) addr] [$ipif([expr $id-1]) addr]
+}
+
+##################
+# Node positions #
+##################
 set internode_dist [expr $opt(tot_dist) / ($opt(nn) - 1.0)]
 for {set id 0} {$id < $opt(nn)} {incr id} {        
 	set position($id) [new "Position/BM"]
@@ -346,15 +373,11 @@ for {set id 0} {$id < $opt(nn)} {incr id} {
 #####################
 for {set i 0} {$i < $opt(nn)} {incr i} {
 	$ns at $opt(starttime)    "$mac($i) start"
-	if {$i != $src_id} {
-		$ns at [expr $opt(stoptime) + 245]     "$mac($i) stop"
-	}
+	$ns at [expr $opt(stoptime) + 245]     "$mac($i) stop"
 }
 
 $ns at $opt(starttime)    "$cbr($src_id) start"
 $ns at $opt(stoptime)     "$cbr($src_id) stop"
-$ns at $opt(stoptime)     "$mac($src_id) stop"
-
 
 ###################
 # Final Procedure #
@@ -367,21 +390,30 @@ proc finish {} {
 	global ipr_sink ipr ipif udp cbr phy phy_data_sink
 	global node_stats tmp_node_stats sink_stats tmp_sink_stats
 
-	global src_id dst_id
+	global src_id sink_id
 	global position
 	global packet_time
 
 	if ($opt(verbose)) {
 		puts "---------------------------------------------------------------------"
 		puts "Simulation summary"
-		puts "src-dst distance : $opt(tot_dist) m"
-		puts "number of nodes  : $opt(nn)"
-		puts "packet size      : $opt(pktsize) byte"
-		puts "cbr period       : $opt(cbr_period) s"
-		puts "packet time      : $packet_time"
-		puts "TDMA frame       : $opt(frame_duration) s"
-		puts "TDMA slots       : $opt(num_slots)"
-		puts "TDMA guard time  : $opt(guard_time) s"
+		puts "src-dst distance\t: $opt(tot_dist) m"
+		puts "number of nodes\t: $opt(nn)"
+		puts ""
+		puts "packet size\t: $opt(pktsize) byte"
+		puts "cbr period\t: $opt(cbr_period) s"
+		puts "ARQ enabled\t: $opt(use_arq)"
+		if ($opt(use_arq)) {
+			puts "RX/TX window\t: $opt(cbr_window)"
+			puts "Retx timeout\t: $opt(cbr_timeout)"
+			puts "Use RTT estimate\t: $opt(use_rtt_timeout)"
+		}
+		
+		puts ""
+		puts "packet time\t: $packet_time s"
+		puts "TDMA frame\t: $opt(frame_duration) s"
+		puts "TDMA slots\t: $opt(num_slots)"
+		puts "TDMA guard time\t: $opt(guard_time) s"
 		puts "---------------------------------------------------------------------"
 	}
 	
@@ -393,9 +425,33 @@ proc finish {} {
 		puts "---------------------------------------------------------------------"
 	}
 	
-	set cbr_throughput [$cbr($dst_id) getthr]
+	set cbr_throughput [$cbr($sink_id) getthr]
+	set cbr_delay [$cbr($sink_id) getdelay]
+	set cbr_delay_stddev [$cbr($sink_id) getdelaystd]
+	set cbr_ftt [$cbr($sink_id) getftt]
+	set cbr_ftt_stddev [$cbr($sink_id) getfttstd]
+	set cbr_rtt [$cbr($src_id) getrtt]
+	set cbr_rtt_stddev [$cbr($src_id) getrttstd]
+
+	set cbr_generated_pkts [$cbr($src_id) getgeneratedpkts]
 	set cbr_sent_pkts [$cbr($src_id) getsentpkts]
-	set cbr_rcv_pkts [$cbr($dst_id) getrecvpkts]
+	set cbr_rcv_pkts [$cbr($sink_id) getrecvpkts]
+
+	if ($opt(verbose)) {
+		puts "CBR throughput\t: $cbr_throughput bit/s"
+		puts "CBR delay\t: $cbr_delay s,\tstddev: $cbr_delay_stddev"
+		puts "CBR FTT\t: $cbr_ftt s,\tstddev: $cbr_ftt_stddev"
+		puts "CBR RTT\t: $cbr_rtt s,\tstddev: $cbr_rtt_stddev"
+		
+		puts "CBR gen. pkts\t: $cbr_generated_pkts"
+		puts "CBR sent packets\t: $cbr_sent_pkts"
+		puts "CBR received packets\t: $cbr_rcv_pkts"
+		puts "CBR gen->recv error rate\t: [expr 1.0 - (1.0 * $cbr_rcv_pkts) / $cbr_generated_pkts]"
+		puts "CBR tx->recv error rate\t: [expr 1.0 - (1.0 * $cbr_rcv_pkts) / $cbr_sent_pkts]"
+	}
+	
+
+
 	
 	set tdma_sent_pkts_sum 0.0
 	set tdma_recv_pkts_sum 0.0
@@ -413,11 +469,17 @@ proc finish {} {
 	}
 
     if {$tdma_sent_pkts($src_id) > 0} {
-	set tdma_per_srcdst [expr 1 - $tdma_recv_pkts($dst_id)/$tdma_sent_pkts($src_id)]
+	set tdma_per_srcdst [expr 1 - $tdma_recv_pkts($sink_id)/$tdma_sent_pkts($src_id)]
     } else {
 	set tdma_per_srcdst NaN
     }
-    
+
+	if {$tdma_sent_pkts($sink_id) > 0} {
+		set tdma_per_dstsrc [expr 1 - $tdma_recv_pkts($src_id)/$tdma_sent_pkts($sink_id)]
+	} else {
+		set tdma_per_dstsrc NaN
+	}
+	
     if ($opt(verbose)) {
         puts "Throughput               \t: [expr $cbr_throughput] bit/s"
         puts "Sent Packets             \t: $cbr_sent_pkts"
