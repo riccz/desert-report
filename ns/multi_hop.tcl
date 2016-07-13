@@ -436,18 +436,29 @@ proc finish {} {
 	set cbr_generated_pkts [$cbr($src_id) getgeneratedpkts]
 	set cbr_sent_pkts [$cbr($src_id) getsentpkts]
 	set cbr_rcv_pkts [$cbr($sink_id) getrecvpkts]
+	set cbr_dup_pkts [$cbr($sink_id) getduppkts]
+
+	set cbr_sent_acks [$cbr($sink_id) getsentacks]
+	set cbr_recv_acks [$cbr($src_id) getrecvacks]
 
 	if ($opt(verbose)) {
-		puts "CBR throughput\t: $cbr_throughput bit/s"
-		puts "CBR delay\t: $cbr_delay s,\tstddev: $cbr_delay_stddev"
-		puts "CBR FTT\t: $cbr_ftt s,\tstddev: $cbr_ftt_stddev"
-		puts "CBR RTT\t: $cbr_rtt s,\tstddev: $cbr_rtt_stddev"
-		
-		puts "CBR gen. pkts\t: $cbr_generated_pkts"
-		puts "CBR sent packets\t: $cbr_sent_pkts"
-		puts "CBR received packets\t: $cbr_rcv_pkts"
-		puts "CBR gen->recv error rate\t: [expr 1.0 - (1.0 * $cbr_rcv_pkts) / $cbr_generated_pkts]"
-		puts "CBR tx->recv error rate\t: [expr 1.0 - (1.0 * $cbr_rcv_pkts) / $cbr_sent_pkts]"
+		puts "CBR"
+		puts "Throughput\t: $cbr_throughput bit/s"
+		puts "Delay\t: $cbr_delay s,\tstddev: $cbr_delay_stddev"
+		puts "FTT\t: $cbr_ftt s,\tstddev: $cbr_ftt_stddev"
+		puts "RTT\t: $cbr_rtt s,\tstddev: $cbr_rtt_stddev"
+		puts ""
+		puts "Gen. pkts\t: $cbr_generated_pkts"
+		puts "Sent packets\t: $cbr_sent_pkts"
+		puts "Received packets\t: $cbr_rcv_pkts"
+		puts "Received duplicate packets\t: $cbr_dup_pkts"
+		puts ""
+		puts "src->sink error rate (generated)\t: [expr 1.0 - (1.0 * $cbr_rcv_pkts) / $cbr_generated_pkts]"
+		puts "src->sink error rate (transmitted)\t: [expr 1.0 - (1.0 * $cbr_rcv_pkts) / $cbr_sent_pkts]"
+
+		puts "Sent ACKs\t: $cbr_sent_acks"
+		puts "Received ACKs\t: $cbr_recv_acks"
+		puts "---------------------------------------------------------------------"
 	}
 	
 
