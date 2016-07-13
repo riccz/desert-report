@@ -157,7 +157,9 @@ set opt(rs_k) 5
 set opt(use_arq) 1
 set opt(use_rtt_timeout) 1
 set opt(cbr_timeout) 1.0
-set opt(cbr_window) [expr $opt(nn) - 1]
+set opt(cbr_window) \
+	[expr round(ceil($opt(num_slots)/2.0 + $opt(nn) + \
+				 ($opt(nn)-2) * ($opt(num_slots)-1) + 1)) ]
 
 # Set the slot duration to transmit exactly one packet (with headers + coding)
 # and one ACK if ARQ is enabled
