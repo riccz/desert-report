@@ -119,15 +119,6 @@ set opt(shuntRes)          [expr 1.49e9]
 set opt(sensitivity)       0.26
 set opt(LUTpath)           "dbs/optical_noise/LUT.txt"
 
-set opt(use_reed_solomon) 0
-set opt(rs_n) 7
-set opt(rs_k) 5
-
-set opt(use_arq) 1
-set opt(use_rtt_timeout) 1
-set opt(cbr_timeout) 1.0
-set opt(cbr_window) 100
-
 set rng [new RNG]
 
 if {$opt(bash_parameters)} {
@@ -158,6 +149,15 @@ if {$opt(bash_parameters)} {
 	set opt(guard_time)  0.001
 	$rng seed         $opt(seedcbr)
 }
+
+set opt(use_reed_solomon) 1
+set opt(rs_n) 7
+set opt(rs_k) 5
+
+set opt(use_arq) 1
+set opt(use_rtt_timeout) 1
+set opt(cbr_timeout) 1.0
+set opt(cbr_window) [expr $opt(nn) - 1]
 
 # Set the slot duration to transmit exactly one packet (with headers + coding)
 # and one ACK if ARQ is enabled
@@ -398,14 +398,14 @@ proc finish {} {
 		puts "---------------------------------------------------------------------"
 		puts "Simulation summary"
 		puts "src-dst distance\t: $opt(tot_dist) m"
-		puts "number of nodes\t: $opt(nn)"
+		puts "number of nodes\t\t: $opt(nn)"
 		puts ""
-		puts "packet size\t: $opt(pktsize) byte"
-		puts "cbr period\t: $opt(cbr_period) s"
-		puts "ARQ enabled\t: $opt(use_arq)"
+		puts "packet size\t\t: $opt(pktsize) byte"
+		puts "cbr period\t\t: $opt(cbr_period) s"
+		puts "ARQ enabled\t\t: $opt(use_arq)"
 		if ($opt(use_arq)) {
-			puts "RX/TX window\t: $opt(cbr_window)"
-			puts "Retx timeout\t: $opt(cbr_timeout)"
+			puts "RX/TX window\t\t: $opt(cbr_window)"
+			puts "Retx timeout\t\t: $opt(cbr_timeout)"
 			puts "Use RTT estimate\t: $opt(use_rtt_timeout)"
 		}
 		
@@ -414,6 +414,11 @@ proc finish {} {
 		puts "TDMA frame\t: $opt(frame_duration) s"
 		puts "TDMA slots\t: $opt(num_slots)"
 		puts "TDMA guard time\t: $opt(guard_time) s"
+		puts ""
+		puts "Reed solomon enabled\t: $opt(use_reed_solomon)"
+		if $opt(use_reed_solomon) {
+			puts "N = $opt(rs_n), K = $opt(rs_k)"
+		}
 
 		puts ""
 		puts "CBR header size\t: [$cbr($src_id) getcbrheadersize]"
@@ -425,7 +430,7 @@ proc finish {} {
 	if ($opt(verbose)) {
 		puts "Node positions (x, y, z)"
 		for {set id 0} {$id < $opt(nn)} {incr id} {
-			puts "Node $id : \([$position($id) getX_], [$position($id) getY_], [$position($id) getZ_]\)"
+			puts "Node $id\t: \([$position($id) getX_], [$position($id) getY_], [$position($id) getZ_]\)"
 		}
 		puts "---------------------------------------------------------------------"
 	}
@@ -440,34 +445,35 @@ proc finish {} {
 
 	set cbr_generated_pkts [$cbr($src_id) getgeneratedpkts]
 	set cbr_sent_pkts [$cbr($src_id) getsentpkts]
+	set cbr_resent_pkts [$cbr($src_id) getretxpkts]
 	set cbr_rcv_pkts [$cbr($sink_id) getrecvpkts]
 	set cbr_dup_pkts [$cbr($sink_id) getduppkts]
 
 	set cbr_sent_acks [$cbr($sink_id) getsentacks]
+	set cbr_sent_dupacks [$cbr($sink_id) getsentdupacks]
 	set cbr_recv_acks [$cbr($src_id) getrecvacks]
+	set cbr_dup_acks [$cbr($src_id) getdupacks]
 
 	if ($opt(verbose)) {
 		puts "CBR"
 		puts "Throughput\t: $cbr_throughput bit/s"
-		puts "Delay\t: $cbr_delay s,\tstddev: $cbr_delay_stddev"
-		puts "FTT\t: $cbr_ftt s,\tstddev: $cbr_ftt_stddev"
-		puts "RTT\t: $cbr_rtt s,\tstddev: $cbr_rtt_stddev"
+		puts "Delay\t\t: $cbr_delay s,\tstddev: $cbr_delay_stddev"
+		puts "FTT\t\t: $cbr_ftt s,\tstddev: $cbr_ftt_stddev"
+		puts "RTT\t\t: $cbr_rtt s,\tstddev: $cbr_rtt_stddev"
 		puts ""
-		puts "Gen. pkts\t: $cbr_generated_pkts"
-		puts "Sent packets\t: $cbr_sent_pkts"
-		puts "Received packets\t: $cbr_rcv_pkts"
+		puts "Gen. pkts\t\t\t: $cbr_generated_pkts"
+		puts "Sent packets\t\t\t: $cbr_sent_pkts"
+		puts "Resent packets\t\t\t: $cbr_resent_pkts"
+		puts "Received packets\t\t: $cbr_rcv_pkts"
 		puts "Received duplicate packets\t: $cbr_dup_pkts"
 		puts ""
-		puts "src->sink error rate (generated)\t: [expr 1.0 - (1.0 * $cbr_rcv_pkts) / $cbr_generated_pkts]"
-		puts "src->sink error rate (transmitted)\t: [expr 1.0 - (1.0 * $cbr_rcv_pkts) / $cbr_sent_pkts]"
-
-		puts "Sent ACKs\t: $cbr_sent_acks"
-		puts "Received ACKs\t: $cbr_recv_acks"
+		puts "Sent ACKs\t\t\t: $cbr_sent_acks"
+		puts "Sent ACKs for duplicate pkts\t: $cbr_sent_dupacks"
+		puts "Received ACKs\t\t\t: $cbr_recv_acks"
+		puts "Received duplicate ACKs\t\t: $cbr_dup_acks"
+		
 		puts "---------------------------------------------------------------------"
 	}
-	
-
-
 	
 	set tdma_sent_pkts_sum 0.0
 	set tdma_recv_pkts_sum 0.0
