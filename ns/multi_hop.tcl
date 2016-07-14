@@ -442,6 +442,8 @@ proc finish {} {
 	set cbr_delay_stddev [$cbr($sink_id) getdelaystd]
 	set cbr_ftt [$cbr($sink_id) getftt]
 	set cbr_ftt_stddev [$cbr($sink_id) getfttstd]
+	set cbr_btt [$cbr($src_id) getftt]
+	set cbr_btt_stddev [$cbr($src_id) getfttstd]
 	set cbr_rtt [$cbr($src_id) getrtt]
 	set cbr_rtt_stddev [$cbr($src_id) getrttstd]
 
@@ -461,6 +463,7 @@ proc finish {} {
 		puts "Throughput\t: $cbr_throughput bit/s"
 		puts "Delay\t\t: $cbr_delay s,\tstddev: $cbr_delay_stddev"
 		puts "FTT\t\t: $cbr_ftt s,\tstddev: $cbr_ftt_stddev"
+		puts "BTT\t\t: $cbr_btt s,\tstddev: $cbr_btt_stddev"
 		puts "RTT\t\t: $cbr_rtt s,\tstddev: $cbr_rtt_stddev"
 		puts ""
 		puts "Gen. pkts\t\t\t: $cbr_generated_pkts"
