@@ -76,11 +76,10 @@ load libuwip.so
 load libuwstaticrouting.so
 load libmphy.so
 load libmmac.so
-#load libuwcsmaaloha.so
 load libuwtdma.so
 load libuwmll.so
 load libuwudp.so
-load libuwcbr.so
+load libuwcbrmh.so
 load libuwoptical_propagation.so
 load libuwoptical_channel.so
 load libuwoptical_phy.so
@@ -155,8 +154,9 @@ set opt(rs_n) 7
 set opt(rs_k) 5
 
 set opt(use_arq) 1
-set opt(use_rtt_timeout) 1
-set opt(cbr_timeout) 1.0
+set opt(use_rtt_timeout) 0
+set opt(dupack_thresh) 2
+set opt(cbr_timeout) 10000.0
 set opt(cbr_window) \
 	[expr round(ceil($opt(num_slots)/2.0 + $opt(nn) + \
 				 ($opt(nn)-2) * ($opt(num_slots)-1) + 1)) ]
@@ -191,15 +191,21 @@ if {$opt(trace_files)} {
 #########################
 # Module Configuration  #
 #########################
-Module/UW/CBR set packetSize_          $opt(pktsize)
-Module/UW/CBR set period_              $opt(cbr_period)
-Module/UW/CBR set PoissonTraffic_      1
-Module/UW/CBR set use_arq              $opt(use_arq)
-Module/UW/CBR set tx_window            $opt(cbr_window)
-Module/UW/CBR set rx_window            $opt(cbr_window)
-Module/UW/CBR set timeout_             $opt(cbr_timeout)
-Module/UW/CBR set use_rtt_timeout      $opt(use_rtt_timeout)
-#Module/UW/CBR set debug_               100
+Module/UW/CBRMH_SRC set PoissonTraffic_      1
+Module/UW/CBRMH_SRC set dupack_thresh        $opt(dupack_thresh)
+Module/UW/CBRMH_SRC set packetSize_          $opt(pktsize)
+Module/UW/CBRMH_SRC set period_              $opt(cbr_period)
+Module/UW/CBRMH_SRC set timeout_             $opt(cbr_timeout)
+Module/UW/CBRMH_SRC set tx_window            $opt(cbr_window)
+Module/UW/CBRMH_SRC set use_arq              $opt(use_arq)
+Module/UW/CBRMH_SRC set use_rtt_timeout      $opt(use_rtt_timeout)
+
+Module/UW/CBRMH_SINK set rx_window            $opt(cbr_window)
+Module/UW/CBRMH_SINK set use_arq              $opt(use_arq)
+
+Module/UW/CBRMH_RELAY set debug_            100
+Module/UW/CBRMH_SINK set debug_               100
+Module/UW/CBRMH_SRC set debug_               100
 
 Module/UW/OPTICAL/PHY   set TxPower_                    $opt(txpower)
 Module/UW/OPTICAL/PHY   set BitRate_                    $opt(bitrate)
@@ -245,18 +251,21 @@ proc createNode { id } {
 	
 	set node($id) [$ns create-M_Node $opt(tracefile) $opt(cltracefile)] 
 
+	set udp($id)  [new Module/UW/UDP]
 	set ipr($id)  [new Module/UW/StaticRouting]
 	set ipif($id) [new Module/UW/IP]
 	set mll($id)  [new Module/UW/MLL] 
 	set mac($id)  [new Module/UW/TDMA] 
 	set phy($id)  [new Module/UW/OPTICAL/PHY]
-	
+
+	$node($id) addModule 6 $udp($id)   1  "UDP"
 	$node($id) addModule 5 $ipr($id)   1  "IPR"
 	$node($id) addModule 4 $ipif($id)  1  "IPF"   
 	$node($id) addModule 3 $mll($id)   1  "MLL"
 	$node($id) addModule 2 $mac($id)   1  "MAC"
 	$node($id) addModule 1 $phy($id)   1  "PHY"
 
+	$node($id) setConnection $udp($id)   $ipr($id)   1
 	$node($id) setConnection $ipr($id)   $ipif($id)  1
 	$node($id) setConnection $ipif($id)  $mll($id)   1
 	$node($id) setConnection $mll($id)   $mac($id)   1
@@ -287,15 +296,12 @@ proc createSourceNode { id } {
 	
 	global node cbr udp portnum ipr
 	
-	set cbr($id)  [new Module/UW/CBR]
-	set udp($id)  [new Module/UW/UDP]
-
+	set cbr($id)  [new Module/UW/CBRMH_SRC]
+	
 	$node($id) addModule 7 $cbr($id)   1  "CBR"
-	$node($id) addModule 6 $udp($id)   1  "UDP"
-
+	
 	$node($id) setConnection $cbr($id)   $udp($id)   1
 	set portnum($id) [$udp($id) assignPort $cbr($id) ]
-	$node($id) setConnection $udp($id)   $ipr($id)   1
 }
 
 proc createSinkNode { id } {
@@ -303,15 +309,25 @@ proc createSinkNode { id } {
 	
 	global node cbr udp portnum ipr
 	
-	set cbr($id)  [new Module/UW/CBR]
-	set udp($id)  [new Module/UW/UDP]
+	set cbr($id)  [new Module/UW/CBRMH_SINK]
 
 	$node($id) addModule 7 $cbr($id)   1  "CBR"
-	$node($id) addModule 6 $udp($id)   1  "UDP"
 
 	$node($id) setConnection $cbr($id)   $udp($id)   1
 	set portnum($id) [$udp($id) assignPort $cbr($id) ]
-	$node($id) setConnection $udp($id)   $ipr($id)   1
+}
+
+proc createRelayNode { id } {
+	createNode $id
+	
+	global node cbr udp portnum ipr
+	
+	set cbr($id)  [new Module/UW/CBRMH_RELAY]
+	
+	$node($id) addModule 7 $cbr($id)   1  "CBR"
+	
+	$node($id) setConnection $cbr($id)   $udp($id)   1
+	set portnum($id) [$udp($id) assignPort $cbr($id) ]
 }
 
 #################
@@ -322,7 +338,7 @@ set src_id 0
 createSourceNode $src_id
 
 for {set id 1} {$id < [expr $opt(nn)-1]} {incr id}  {
-	createNode $id
+	createRelayNode $id
 }
 
 set sink_id [expr $opt(nn) - 1]
@@ -331,8 +347,9 @@ createSinkNode $sink_id
 ################################
 # Inter-node module connection #
 ################################
-$cbr($src_id) set destAddr_ [$ipif($sink_id) addr]
-$cbr($src_id) set destPort_ $portnum($sink_id)
+for { set id 1} {$id < [expr $opt(nn)]} {incr id} {
+	$cbr($src_id) appendtopath [$ipif($id) addr] $portnum($id)
+}
 
 ###################
 # Fill ARP tables #
@@ -347,14 +364,14 @@ for {set id1 0} {$id1 < $opt(nn)} {incr id1}  {
 # Routing tables #
 ##################
 
-# Source -> Sink
+# ->
 for {set id 0} {$id < [expr $opt(nn) - 1]} {incr id}  {
-	$ipr($id) addRoute [$ipif([expr $sink_id]) addr] [$ipif([expr $id+1]) addr]
+	$ipr($id) addRoute [$ipif([expr $id + 1]) addr] [$ipif([expr $id + 1]) addr]
 }
 
-# Sink -> Source
+# <-
 for {set id 1} {$id < [expr $opt(nn)]} {incr id}  {
-	$ipr($id) addRoute [$ipif([expr $src_id]) addr] [$ipif([expr $id-1]) addr]
+	$ipr($id) addRoute [$ipif([expr $id - 1]) addr] [$ipif([expr $id - 1]) addr]
 }
 
 ##################
@@ -507,29 +524,16 @@ proc finish {} {
 		set tdma_per_dstsrc NaN
 	}
 	
-    if ($opt(verbose)) {
-        puts "Throughput               \t: [expr $cbr_throughput] bit/s"
-        puts "Sent Packets             \t: $cbr_sent_pkts"
-        puts "Received Packets         \t: $cbr_rcv_pkts"
-	puts "Global packet error rate\t: $tdma_per"
-	puts "src -> dst packet error rate\t: $tdma_per_srcdst"
-	puts "---------------------------------------------------------------------"
-    }
-
-    if ($opt(verbose)) {
-	puts "Packet error rate per hop"
-	for {set i 1} {$i < $opt(nn)} {incr i} {
-	    if {$tdma_sent_pkts([expr $i - 1]) > 0} {
-		set per [expr 1 - $tdma_recv_pkts($i) / $tdma_sent_pkts([expr $i - 1])]
-	    } else {
-		set per NaN
-	    }
-	    puts "Node [expr $i-1] -> Node $i\t: $per"
+	if ($opt(verbose)) {
+		puts "TDMA"
+		puts "Global packet error rate\t: $tdma_per"
+		puts "src -> sink packet error rate\t: $tdma_per_srcdst"
+		puts "sink -> src packet error rate\t: $tdma_per_dstsrc"
+		puts "---------------------------------------------------------------------"
 	}
-    }
-    
-    $ns flush-trace
-    close $opt(tracefile)
+
+	$ns flush-trace
+	close $opt(tracefile)
 }
 
 
