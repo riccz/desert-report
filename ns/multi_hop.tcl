@@ -203,6 +203,9 @@ Module/UW/CBRMH_SRC set use_rtt_timeout      $opt(use_rtt_timeout)
 Module/UW/CBRMH_SINK set rx_window            $opt(cbr_window)
 Module/UW/CBRMH_SINK set use_arq              $opt(use_arq)
 
+Module/UW/CBRMH_RELAY set dupack_thresh       $opt(dupack_thresh)
+Module/UW/CBRMH_RELAY set buffer_enabled        0
+
 Module/UW/CBRMH_RELAY set debug_            100
 Module/UW/CBRMH_SINK set debug_               100
 Module/UW/CBRMH_SRC set debug_               100
@@ -468,6 +471,7 @@ proc finish {} {
 	set cbr_sent_pkts [$cbr($src_id) getsentpkts]
 	set cbr_resent_pkts [$cbr($src_id) getretxpkts]
 	set cbr_rcv_pkts [$cbr($sink_id) getrecvpkts]
+	set cbr_proc_pkts [$cbr($sink_id) getprocpkts]
 	set cbr_dup_pkts [$cbr($sink_id) getduppkts]
 
 	set cbr_sent_acks [$cbr($sink_id) getsentacks]
@@ -487,6 +491,7 @@ proc finish {} {
 		puts "Sent packets\t\t\t: $cbr_sent_pkts"
 		puts "Resent packets\t\t\t: $cbr_resent_pkts"
 		puts "Received packets\t\t: $cbr_rcv_pkts"
+		puts "Processed packets\t\t: $cbr_proc_pkts"
 		puts "Received duplicate packets\t: $cbr_dup_pkts"
 		puts ""
 		puts "Sent ACKs\t\t\t: $cbr_sent_acks"
