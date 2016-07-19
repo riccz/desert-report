@@ -161,8 +161,8 @@ if {$opt(bash_parameters)} {
 
 # Set the slot duration to transmit exactly one packet (with headers + coding)
 # and one ACK if ARQ is enabled
-set packet_header_size 4; #UDP only
-set ack_size [expr 12+4]; # CBR header + UDP
+set packet_header_size 4; #UDP+IP
+set ack_size [expr 24+$packet_header_size]; # CBR header+UDP+IP
 set packet_time [expr ($opt(pktsize) + $packet_header_size) * 8.0 / $opt(bitrate)]
 if $opt(use_arq) {
 	set packet_time [expr $packet_time + $ack_size * 8.0 / $opt(bitrate)]
@@ -414,6 +414,11 @@ proc finish {} {
 		puts "TDMA frame\t: $opt(frame_duration) s"
 		puts "TDMA slots\t: $opt(num_slots)"
 		puts "TDMA guard time\t: $opt(guard_time) s"
+
+		puts ""
+		puts "CBR header size\t: [$cbr($src_id) getcbrheadersize]"
+		puts "UDP header size\t: [$udp($src_id) getudpheadersize]"
+		puts "IP header size\t: [$ipif($src_id) getipheadersize]"
 		puts "---------------------------------------------------------------------"
 	}
 	
