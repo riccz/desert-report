@@ -105,12 +105,12 @@ set opt(maxinterval_)       10.0
 set opt(freq)              10000000
 set opt(bw)                100000
 set opt(bitrate)           1000000
-set opt(txpower)           0.58
+set opt(txpower)           50
 set opt(opt_acq_db)        10
 set opt(temperatura)       293.15 ; # in Kelvin
 set opt(txArea)            0.000010
 set opt(rxArea)            0.0000011 ; # receveing area, it has to be the same for optical physical and propagation
-set opt(c)                 0.043 ; # pure seawater attenation coefficient
+set opt(c)                 0.4 ; # pure seawater attenation coefficient
 set opt(theta)             1
 set opt(id)                [expr 1.0e-9]
 set opt(il)                [expr 1.0e-6]
@@ -149,8 +149,8 @@ if {$opt(bash_parameters)} {
 	$rng seed         $opt(seedcbr)
 }
 
-set opt(use_reed_solomon) 1
-set opt(rs_n) 7
+set opt(use_reed_solomon) 0
+set opt(rs_n) 5
 set opt(rs_k) 5
 
 set opt(use_arq) 1
@@ -381,13 +381,13 @@ for {set id 1} {$id < [expr $opt(nn)]} {incr id}  {
 # Node positions #
 ##################
 set internode_dist [expr $opt(tot_dist) / ($opt(nn) - 1.0)]
-for {set id 0} {$id < $opt(nn)} {incr id} {        
+for {set id 0} {$id < $opt(nn)} {incr id} {
 	set position($id) [new "Position/BM"]
 	$node($id) addPosition $position($id)
-	
-	$position($id) setZ_ -10
+
+	$position($id) setZ_ -30
 	$position($id) setX_ [expr {$id * $internode_dist}]
-	$position($id) setY_ 0    
+	$position($id) setY_ 0
 }
 
 #####################
