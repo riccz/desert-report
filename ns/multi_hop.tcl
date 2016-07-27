@@ -105,18 +105,19 @@ set opt(maxinterval_)       10.0
 set opt(freq)              10000000
 set opt(bw)                100000
 set opt(bitrate)           1000000
-set opt(txpower)           50
+set opt(txpower)           50; # Watt
 set opt(opt_acq_db)        10
 set opt(temperatura)       293.15 ; # in Kelvin
 set opt(txArea)            0.000010
 set opt(rxArea)            0.0000011 ; # receveing area, it has to be the same for optical physical and propagation
-set opt(c)                 0.4 ; # pure seawater attenation coefficient
+set opt(c)                 0.4 ; # seawater attenation coefficient
 set opt(theta)             1
 set opt(id)                [expr 1.0e-9]
 set opt(il)                [expr 1.0e-6]
 set opt(shuntRes)          [expr 1.49e9]
 set opt(sensitivity)       0.26
-set opt(LUTpath)           "dbs/optical_noise/LUT.txt"
+#set opt(LUTpath)           "dbs/optical_noise/LUT.txt"
+set opt(LUTpath)           "dbs/optical_noise/scenario2/Pc0.4ab_depth40.ascii"
 
 set rng [new RNG]
 
@@ -385,7 +386,7 @@ for {set id 0} {$id < $opt(nn)} {incr id} {
 	set position($id) [new "Position/BM"]
 	$node($id) addPosition $position($id)
 
-	$position($id) setZ_ -30
+	$position($id) setZ_ -40
 	$position($id) setX_ [expr {$id * $internode_dist}]
 	$position($id) setY_ 0
 }
