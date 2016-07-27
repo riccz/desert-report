@@ -155,6 +155,7 @@ set opt(rs_n) 5
 set opt(rs_k) 5
 
 set opt(use_arq) 1
+set opt(use_relays) 0
 set opt(use_rtt_timeout) 0
 set opt(dupack_thresh) 2
 set opt(cbr_timeout) 10000.0
@@ -205,7 +206,7 @@ Module/UW/CBRMH_SINK set rx_window            $opt(cbr_window)
 Module/UW/CBRMH_SINK set use_arq              $opt(use_arq)
 
 Module/UW/CBRMH_RELAY set dupack_thresh       $opt(dupack_thresh)
-Module/UW/CBRMH_RELAY set buffer_enabled        0
+Module/UW/CBRMH_RELAY set buffer_enabled      $opt(use_relays)
 
 Module/UW/CBRMH_RELAY set debug_            100
 Module/UW/CBRMH_SINK set debug_               100
