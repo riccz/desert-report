@@ -208,9 +208,9 @@ Module/UW/CBRMH_SINK set use_arq              $opt(use_arq)
 Module/UW/CBRMH_RELAY set dupack_thresh       $opt(dupack_thresh)
 Module/UW/CBRMH_RELAY set buffer_enabled      $opt(use_relays)
 
-Module/UW/CBRMH_RELAY set debug_            100
-Module/UW/CBRMH_SINK set debug_               100
-Module/UW/CBRMH_SRC set debug_               100
+#Module/UW/CBRMH_RELAY set debug_            100
+#Module/UW/CBRMH_SINK set debug_               100
+#Module/UW/CBRMH_SRC set debug_               100
 
 Module/UW/OPTICAL/PHY   set TxPower_                    $opt(txpower)
 Module/UW/OPTICAL/PHY   set BitRate_                    $opt(bitrate)
@@ -536,7 +536,6 @@ proc finish {} {
 		puts "Global packet error rate\t: $tdma_per"
 		puts "src -> sink packet error rate\t: $tdma_per_srcdst"
 		puts "sink -> src packet error rate\t: $tdma_per_dstsrc"
-		puts "---------------------------------------------------------------------"
 	}
 
 	$ns flush-trace
