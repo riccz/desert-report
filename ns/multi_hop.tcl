@@ -11,23 +11,23 @@
 # 2. Redistributions in binary form must reproduce the above copyright
 #    notice, this list of conditions and the following disclaimer in the
 #    documentation and/or other materials provided with the distribution.
-# 3. Neither the name of the University of Padova (SIGNET lab) nor the 
-#    names of its contributors may be used to endorse or promote products 
+# 3. Neither the name of the University of Padova (SIGNET lab) nor the
+#    names of its contributors may be used to endorse or promote products
 #    derived from this software without specific prior written permission.
 #
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED 
-# TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
-# PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR 
-# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, 
-# EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, 
-# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; 
-# OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
-# WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR 
-# OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+# TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+# PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+# EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+# OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+# WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+# OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 # ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-# This script is used to test UW-OPTICAL-Propagation and UW-OPTICAL-PHY with 
+# This script is used to test UW-OPTICAL-Propagation and UW-OPTICAL-PHY with
 # addition of ambient light noise provided by Hydrolight LUT.
 # There are 2 nodes that can transmit each other packets in a point 2 point
 # netwerk with a CBR (Constant Bit Rate) Application Module
@@ -52,9 +52,9 @@
 #   +-------------------------+
 #   |  2. UW/CSMA_ALOHA       |
 #   +-------------------------+
-#   |  1. UW/OPTICAL/PHY      | 
+#   |  1. UW/OPTICAL/PHY      |
 #   +-------------------------+
-#           |         |    
+#           |         |
 #   +-------------------------+
 #   |   UW/Optical/Channel    |
 #   +-------------------------+
@@ -70,7 +70,7 @@ set opt(bash_parameters) 	1
 # Library Loading   #
 #####################
 load libMiracle.so
-load libMiracleWirelessCh.so 
+load libMiracleWirelessCh.so
 load libMiracleBasicMovement.so
 load libuwip.so
 load libuwstaticrouting.so
@@ -96,8 +96,8 @@ $ns use-Miracle
 ##################
 set opt(start_clock) [clock seconds]
 
-set opt(starttime)          1	
-set opt(stoptime)           101 
+set opt(starttime)          1
+set opt(stoptime)           101
 set opt(txduration)         [expr $opt(stoptime) - $opt(starttime)] ;# Duration of the simulation
 
 set opt(maxinterval_)       10.0
@@ -172,7 +172,7 @@ if $opt(use_arq) {
 	set packet_time [expr $packet_time + $ack_size * 8.0 / $opt(bitrate)]
 }
 if $opt(use_reed_solomon) {
-	set packet_time [expr $packet_time * $opt(rs_n) / $opt(rs_k)] 
+	set packet_time [expr $packet_time * $opt(rs_n) / $opt(rs_k)]
 }
 set opt(frame_duration) [expr ($packet_time + $opt(guard_time)) * $opt(num_slots)]
 
@@ -253,19 +253,19 @@ Module/UW/TDMA set guard_time $opt(guard_time)
 proc createNode { id } {
 	global channel ns cbr position node udp portnum ipr ipif
 	global opt mll mac propagation data_mask
-	
-	set node($id) [$ns create-M_Node $opt(tracefile) $opt(cltracefile)] 
+
+	set node($id) [$ns create-M_Node $opt(tracefile) $opt(cltracefile)]
 
 	set udp($id)  [new Module/UW/UDP]
 	set ipr($id)  [new Module/UW/StaticRouting]
 	set ipif($id) [new Module/UW/IP]
-	set mll($id)  [new Module/UW/MLL] 
-	set mac($id)  [new Module/UW/TDMA] 
+	set mll($id)  [new Module/UW/MLL]
+	set mac($id)  [new Module/UW/TDMA]
 	set phy($id)  [new Module/UW/OPTICAL/PHY]
 
 	$node($id) addModule 6 $udp($id)   1  "UDP"
 	$node($id) addModule 5 $ipr($id)   1  "IPR"
-	$node($id) addModule 4 $ipif($id)  1  "IPF"   
+	$node($id) addModule 4 $ipif($id)  1  "IPF"
 	$node($id) addModule 3 $mll($id)   1  "MLL"
 	$node($id) addModule 2 $mac($id)   1  "MAC"
 	$node($id) addModule 1 $phy($id)   1  "PHY"
@@ -298,22 +298,22 @@ proc createNode { id } {
 
 proc createSourceNode { id } {
 	createNode $id
-	
+
 	global node cbr udp portnum ipr
-	
+
 	set cbr($id)  [new Module/UW/CBRMH_SRC]
-	
+
 	$node($id) addModule 7 $cbr($id)   1  "CBR"
-	
+
 	$node($id) setConnection $cbr($id)   $udp($id)   1
 	set portnum($id) [$udp($id) assignPort $cbr($id) ]
 }
 
 proc createSinkNode { id } {
 	createNode $id
-	
+
 	global node cbr udp portnum ipr
-	
+
 	set cbr($id)  [new Module/UW/CBRMH_SINK]
 
 	$node($id) addModule 7 $cbr($id)   1  "CBR"
@@ -324,13 +324,13 @@ proc createSinkNode { id } {
 
 proc createRelayNode { id } {
 	createNode $id
-	
+
 	global node cbr udp portnum ipr
-	
+
 	set cbr($id)  [new Module/UW/CBRMH_RELAY]
-	
+
 	$node($id) addModule 7 $cbr($id)   1  "CBR"
-	
+
 	$node($id) setConnection $cbr($id)   $udp($id)   1
 	set portnum($id) [$udp($id) assignPort $cbr($id) ]
 }
@@ -432,7 +432,7 @@ proc finish {} {
 			puts "Retx timeout\t\t: $opt(cbr_timeout)"
 			puts "Use RTT estimate\t: $opt(use_rtt_timeout)"
 		}
-		
+
 		puts ""
 		puts "packet time\t: $packet_time s"
 		puts "TDMA frame\t: $opt(frame_duration) s"
@@ -450,7 +450,7 @@ proc finish {} {
 		puts "IP header size\t: [$ipif($src_id) getipheadersize]"
 		puts "---------------------------------------------------------------------"
 	}
-	
+
 	if ($opt(verbose)) {
 		puts "Node positions (x, y, z)"
 		for {set id 0} {$id < $opt(nn)} {incr id} {
@@ -458,7 +458,7 @@ proc finish {} {
 		}
 		puts "---------------------------------------------------------------------"
 	}
-	
+
 	set cbr_throughput [$cbr($sink_id) getthr]
 	set cbr_delay [$cbr($sink_id) getdelay]
 	set cbr_delay_stddev [$cbr($sink_id) getdelaystd]
@@ -500,10 +500,10 @@ proc finish {} {
 		puts "Sent ACKs for duplicate pkts\t: $cbr_sent_dupacks"
 		puts "Received ACKs\t\t\t: $cbr_recv_acks"
 		puts "Received duplicate ACKs\t\t: $cbr_dup_acks"
-		
+
 		puts "---------------------------------------------------------------------"
 	}
-	
+
 	set tdma_sent_pkts_sum 0.0
 	set tdma_recv_pkts_sum 0.0
 	for {set i 0} {$i < $opt(nn)} {incr i} {
@@ -519,18 +519,18 @@ proc finish {} {
 		set tdma_per NaN
 	}
 
-    if {$tdma_sent_pkts($src_id) > 0} {
-	set tdma_per_srcdst [expr 1 - $tdma_recv_pkts($sink_id)/$tdma_sent_pkts($src_id)]
-    } else {
-	set tdma_per_srcdst NaN
-    }
+	if {$tdma_sent_pkts($src_id) > 0} {
+		set tdma_per_srcdst [expr 1 - $tdma_recv_pkts($sink_id)/$tdma_sent_pkts($src_id)]
+	} else {
+		set tdma_per_srcdst NaN
+	}
 
 	if {$tdma_sent_pkts($sink_id) > 0} {
 		set tdma_per_dstsrc [expr 1 - $tdma_recv_pkts($src_id)/$tdma_sent_pkts($sink_id)]
 	} else {
 		set tdma_per_dstsrc NaN
 	}
-	
+
 	if ($opt(verbose)) {
 		puts "TDMA"
 		puts "Global packet error rate\t: $tdma_per"
@@ -551,6 +551,6 @@ if ($opt(verbose)) {
 }
 
 
-$ns at [expr $opt(stoptime) + 250.0]  "finish; $ns halt" 
+$ns at [expr $opt(stoptime) + 250.0]  "finish; $ns halt"
 
 $ns run
