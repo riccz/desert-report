@@ -3,20 +3,22 @@
 \usepackage{amsmath}
 \usepackage{bbm}
 
-\renewcommand{\vec}[1]{\underline{#1}}
 \renewcommand{\approx}[0]{\simeq}
+\renewcommand{\vec}[1]{\underline{#1}}
 
-\newcommand{\real}[1]{\operatorname{Re}\left[#1\right]}
+\newcommand{\Econd}[2]{\operatorname{E}\left[#1\middle|#2\right]}
 \newcommand{\E}[1]{\operatorname{E}\left[#1\right]}
-\newcommand{\norm}[1]{\left\lVert#1\right\rVert}
 \newcommand{\abs}[1]{\left|#1\right|}
-\newcommand{\fourier}[1]{\operatorname{\mathcal{F}}\left[#1\right]}
 \newcommand{\ceil}[1]{\left\lceil#1\right\rceil}
+\newcommand{\distlike}[0]{\sim}
 \newcommand{\floor}[1]{\left\lfloor#1\right\rfloor}
-\newcommand{\prob}[1]{\operatorname{P}\left[#1\right]}
-\newcommand{\probcond}[2]{\operatorname{P}\left[#1\middle|#2\right]}
+\newcommand{\fourier}[1]{\operatorname{\mathcal{F}}\left[#1\right]}
+\newcommand{\imag}[1]{\operatorname{Im}\left[#1\right]}
 \newcommand{\ind}[1]{\operatorname{\mathbbm{1}}\left\{#1\right\}}
-\newcommand{\distrib}[0]{\sim}
+\newcommand{\norm}[1]{\left\lVert#1\right\rVert}
+\newcommand{\probcond}[2]{\operatorname{P}\left[#1\middle|#2\right]}
+\newcommand{\prob}[1]{\operatorname{P}\left[#1\right]}
+\newcommand{\real}[1]{\operatorname{Re}\left[#1\right]}
 \newcommand{\unif}[1]{\mathcal{U}_{#1}}
 
 \newcolumntype{C}{>{$}c<{$}}
