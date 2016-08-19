@@ -1,0 +1,33 @@
+\ProvidesPackage{codecmds}
+
+\usepackage{listings}
+\usepackage{color}
+\usepackage{textcomp}
+\usepackage{collcell}
+
+\definecolor{matlabgreen}{RGB}{28,172,0}
+\definecolor{matlablilas}{RGB}{170,55,241}
+
+\newcommand{\matlabcodeconfig}[0]{%
+  \lstset{%
+    language=Matlab,%
+    basicstyle={\ttfamily \footnotesize},%
+    breaklines=true,%
+    morekeywords={true,false,warning,xlim,ylim},%
+    keywordstyle=\color{blue},%
+    stringstyle=\color{matlablilas},%
+    commentstyle={\color{matlabgreen} \itshape},%
+    numberstyle={\ttfamily \tiny},%
+    frame=leftline,%
+    showstringspaces=false,%
+    numbers=left,%
+    upquote=true,%
+  }%
+}
+
+\newcommand{\textinlinecode}[1]{\lstinline[basicstyle=\ttfamily,keywordstyle={},stringstyle={},commentstyle={\itshape}]{#1}}
+\newcommand{\inlinecode}[1]{\ifmmode\text{\textinlinecode{#1}}\else\textinlinecode{#1}\fi}
+
+\newcommand{\includecode}[1]{\lstinputlisting[caption={\ttfamily #1.m},label={lst:#1}]{matlab/#1.m}}
+
+\newcolumntype{I}{>{\collectcell\inlinecode}{l}<{\endcollectcell}}

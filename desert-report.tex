@@ -1,0 +1,36 @@
+\documentclass[a4paper,twoside,twocolumn]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+
+\usepackage[margin=2.54cm]{geometry}
+
+\usepackage{import}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{siunitx}
+\usepackage{hyperref}
+\usepackage{color}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage[section]{placeins}
+%\usepackage[backend=biber,style=ieee]{biblatex}
+
+\usepackage{customcmds}
+%\usepackage{codecmds}
+
+%\addbibresource{desert-report.bib}
+
+\author{Enrico Pozzobon \and Riccardo Zanol}
+\title{desert netsim report?}
+
+\begin{document}
+%\matlabcodeconfig
+\maketitle
+
+\section{Single-hop acoustic network}
+\import{./}{single-hop.tex}
+
+%\printbibliography
+\end{document}
