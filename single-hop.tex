@@ -1,0 +1,40 @@
+The single-hop network uses a CBR source that transmits to a CBR sink
+using a TDMA MAC and a Hermes PHY.
+
+Let $L_p = 1000+4$ and $L_a = 24+4$ be the size of the packet and of the
+ACK at the data-link layer.
+
+If the ARQ is disabled, the source is the only node that transmits
+over the channel, so the throughput will be the PHY bitrate (the same
+as the the DL bitrate since the TDMA does not add any header) times
+the PDR.
+
+The highest bitrate of the Hermes modems is \SI{150}{kb\per\s}, which
+becomes $r = \SI{87.768}{kb\per\s}$ of information rate taking into
+account the BCH coding, the training sequence that preceeds each frame
+and the 32-bit CRC.
+
+The PDR of the Hermes modem is measured in the case of full frames
+(9120 informtion bits + 32 bits of CRC) at certain distances and
+linearly interpolated. Then, assuming that each 11-bit word is wrong
+with probability $p_{word}$ independently from the others, we can
+compute the packet error rate for a packet of $N_{pkt}$ words as
+\begin{equation}
+  p_{pkt} = p_{word}^{N_{pkt}} = p_{frame}^{\frac{N_{pkt}}{N_{frame}}}
+\end{equation}
+
+{\color{red} what about the 32-bit CRC? $N{pkt} = \ceil{L/11}$ in the
+  code, but the CRC must also be received correctly}
+
+The maximum achievable throughput is
+\begin{equation}
+  S = r p_{pkt}
+\end{equation}
+at a distance of \SI{50}{\m} the throughput is $S \approx
+\SI{77.24}{kb\per\s}$
+
+The simulation results are close to this value.
+
+{\color{red} The PDR of Hermes is measured at a depth of 0.5m, other
+  params for the propagation?}
+
