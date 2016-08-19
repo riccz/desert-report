@@ -93,6 +93,7 @@ set opt(nn)		    2; # Number of Nodes
 set opt(src_id)             0
 set opt(sink_id)            1
 set opt(node_dist)	    50.0
+set opt(node_depth)         0.5
 
 set opt(starttime)	    1
 set opt(stoptime)	    1001
@@ -100,8 +101,8 @@ set opt(txduration)	    [expr $opt(stoptime) - $opt(starttime)]
 
 # Hermes settings taken from test_uwhermesphy_simple.tcl
 set opt(txpower)            180.0; # Power transmitted in dB re uPa
-set opt(freq)               375000.0; # Frequency used in Hz
-set opt(bw)                 76000.0; # Bandwidth used in Hz
+set opt(freq)               300000.0; # Frequency used in Hz
+set opt(bw)                 75000.0; # Bandwidth used in Hz
 set opt(bitrate)            87768.0; # bitrate in bps
 
 set opt(maxinterval_)	    20.0
@@ -267,7 +268,7 @@ proc createNode { id } {
 
 	$position($id) setX_ [expr $id * $opt(node_dist) / sqrt(2)]
 	$position($id) setY_ [expr $id * $opt(node_dist) / sqrt(2)]
-	$position($id) setZ_ -40
+	$position($id) setZ_ $opt(node_depth)
 
 	#Interference model
 	set interf_data($id)  [new Module/UW/INTERFERENCE]
