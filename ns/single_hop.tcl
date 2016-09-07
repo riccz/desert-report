@@ -69,6 +69,7 @@ load libuwstaticrouting.so
 load libmphy.so
 load libmmac.so
 load libuwtdma.so
+load libuwcsmaaloha.so
 load libuwmll.so
 load libuwudp.so
 load libuwcbr.so
@@ -96,7 +97,7 @@ set opt(node_dist)	    50.0
 set opt(node_depth)         0.5
 
 set opt(starttime)	    1
-set opt(stoptime)	    1001
+set opt(stoptime)	    5001
 set opt(txduration)	    [expr $opt(stoptime) - $opt(starttime)]
 
 # Hermes settings taken from test_uwhermesphy_simple.tcl
@@ -115,9 +116,9 @@ set opt(seedcbr)	    1
 
 # TDMA settings
 set opt(propagation_speed)  1500.0; # m/s
-set opt(pkts_per_frame)     3
+set opt(pkts_per_frame)     1
 set opt(winsize)            $opt(pkts_per_frame); # CBR
-set opt(guard_interval)     0.001
+set opt(guard_interval)     0.0005
 
 set hdrsize 4; # UDP + IP
 set acksize 24; # CBR header
@@ -132,7 +133,7 @@ set sink_slot [expr $opt(pkts_per_frame) * $ack_time + $opt(guard_interval) + \
 		       $prop_delay]
 set frame_duration [expr $src_slot + $sink_slot]
 
-set rng [new RNG]
+
 
 if {$opt(bash_parameters)} {
 	if {$argc != 4} {
@@ -151,10 +152,12 @@ if {$opt(bash_parameters)} {
 		set opt(cbr_period) [lindex $argv 1]
 		set opt(pktsize)    [lindex $argv 2]
 		set opt(node_dist) [lindex $argv 3]
-		$rng seed	  $opt(seedcbr)
+		
 	}
 }
 
+set rng [new RNG]
+$rng seed $opt(seedcbr)
 set rnd_gen [new RandomVariable/Uniform]
 $rnd_gen use-rng $rng
 
@@ -169,8 +172,6 @@ if {$opt(trace_files)} {
 	set opt(cltracefilename) "/dev/null"
 	set opt(cltracefile) [open $opt(cltracefilename) w]
 }
-
-
 
 #########################
 # Module Configuration	#
@@ -190,7 +191,7 @@ Module/UW/CBR set packetSize_	       $opt(pktsize)
 Module/UW/CBR set period_	       $opt(cbr_period)
 Module/UW/CBR set rx_window	       $opt(winsize)
 Module/UW/CBR set tx_window	       $opt(winsize)
-#Module/UW/CBR set use_arq	       1
+Module/UW/CBR set use_arq	       1
 #Module/UW/CBR set timeout_	       $rtt
 #Module/UW/CBR set use_rtt_timeout	0
 #Module/UW/CBR set debug_	       100
@@ -376,6 +377,32 @@ proc finish {} {
 	set src_id $opt(src_id)
 	set sink_id $opt(sink_id)
 
+	set cbr_thr [$cbr($sink_id) getthr]
+	set cbr_sent_pkts [$cbr($src_id) getsentpkts]
+	set cbr_recv_pkts [$cbr($sink_id) getrecvpkts]
+	set cbr_ftt [$cbr($sink_id) getftt]
+	set cbr_ftt_stddev [$cbr($sink_id) getfttstd]
+	set cbr_btt [$cbr($src_id) getftt]
+	set cbr_btt_stddev [$cbr($src_id) getfttstd]
+	set cbr_rtt [$cbr($src_id) getrtt]
+	set cbr_rtt_stddev [$cbr($src_id) getrttstd]
+	set cbr_delay [$cbr($sink_id) getdelay]
+	set cbr_delay_stddev [$cbr($sink_id) getdelaystd]
+
+	if ($opt(verbose)) {
+		puts "CBR"
+		puts "Throughput    : $cbr_thr"
+		puts "CBR generated packets    : [$cbr($src_id) getgeneratedpkts]"
+		puts "CBR sent Packets	       : $cbr_sent_pkts"
+		puts "CBR received Packets     : $cbr_recv_pkts"
+		puts "CBR processed pkts       : [$cbr($sink_id) getprocpkts]"
+
+		puts "FTT\t: $cbr_ftt,\tstd.dev. $cbr_ftt_stddev"
+		puts "BTT\t: $cbr_btt,\tstd.dev. $cbr_btt_stddev"
+		puts "RTT\t: $cbr_rtt,\tstd.dev. $cbr_rtt_stddev"
+		puts "Delay\t: $cbr_delay,\tstd.dev. $cbr_delay_stddev"
+	}
+	
 	set mac_sent_src [$mac($src_id) get_sent_pkts]
 	set mac_sent_sink [$mac($sink_id) get_sent_pkts]
 	set mac_recv_src [$mac($src_id) get_recv_pkts]
@@ -403,33 +430,7 @@ proc finish {} {
 		puts "Sink -> Source PDR\t: $sink_src_pdr"
 		puts "-----------------------------------------------------------------"
 	}
-
-	set cbr_thr [$cbr($sink_id) getthr]
-	set cbr_sent_pkts [$cbr($src_id) getsentpkts]
-	set cbr_recv_pkts [$cbr($sink_id) getrecvpkts]
-	set cbr_ftt [$cbr($sink_id) getftt]
-	set cbr_ftt_stddev [$cbr($sink_id) getfttstd]
-	set cbr_btt [$cbr($src_id) getftt]
-	set cbr_btt_stddev [$cbr($src_id) getfttstd]
-	set cbr_rtt [$cbr($src_id) getrtt]
-	set cbr_rtt_stddev [$cbr($src_id) getrttstd]
-	set cbr_delay [$cbr($sink_id) getdelay]
-	set cbr_delay_stddev [$cbr($sink_id) getdelaystd]
-
-	if ($opt(verbose)) {
-		puts "CBR"
-		puts "Throughput    : $cbr_thr"
-		puts "CBR generated packets    : [$cbr($src_id) getgeneratedpkts]"
-		puts "CBR sent Packets	       : $cbr_sent_pkts"
-		puts "CBR received Packets     : $cbr_recv_pkts"
-		puts "CBR processed pkts       : [$cbr($sink_id) getprocpkts]"
-
-		puts "FTT\t: $cbr_ftt,\tstd.dev. $cbr_ftt_stddev"
-		puts "BTT\t: $cbr_btt,\tstd.dev. $cbr_btt_stddev"
-		puts "RTT\t: $cbr_rtt,\tstd.dev. $cbr_rtt_stddev"
-		puts "Delay\t: $cbr_delay,\tstd.dev. $cbr_delay_stddev"
-	}
-
+	
 	$ns flush-trace
 	close $opt(tracefile)
 }
