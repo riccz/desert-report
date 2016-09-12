@@ -1,40 +1,84 @@
 The single-hop network uses a CBR source that transmits to a CBR sink
 using a TDMA MAC and a Hermes PHY.
 
-Let $L_p = 1000+4$ and $L_a = 24+4$ be the size of the packet and of the
-ACK at the data-link layer.
+\subsection{Physical layer}
+The pair of Hermes modems is modeled as an i.i.d. channel with a
+probability of error that depends only on the distance between the
+nodes.
 
-If the ARQ is disabled, the source is the only node that transmits
-over the channel, so the throughput will be the PHY bitrate (the same
-as the the DL bitrate since the TDMA does not add any header) times
-the PDR.
+The modems are assumed to work at the highest bitrate
+possible, \SI{150}{kb/s}, which becomes $R = \SI{87.768}{kb/s}$ taking
+into account the BCH(15,11) channel-coding, the training sequence that
+preceeds each frame and the 32-bit CRC.
 
-The highest bitrate of the Hermes modems is \SI{150}{kb\per\s}, which
-becomes $r = \SI{87.768}{kb\per\s}$ of information rate taking into
-account the BCH coding, the training sequence that preceeds each frame
-and the 32-bit CRC.
+The maximum amount of data that can be sent in one frame
+is \SI{9120}{bits} so the maximum frame size, before being
+channel-coded, is \SI{9152}{bits}.
 
-The PDR of the Hermes modem is measured in the case of full frames
-(9120 informtion bits + 32 bits of CRC) at certain distances and
-linearly interpolated. Then, assuming that each 11-bit word is wrong
-with probability $p_{word}$ independently from the others, we can
-compute the packet error rate for a packet of $N_{pkt}$ words as
+The probability of error is taken from \cite{hermes} and linearly
+interpolated. In the paper it is measured at a depth of \SI{0.5}{\m}
+and various distances, while transmitting full frames.
+%
+So, assuming that each 11-bit word is lost with probability $p_w$
+independently from the others, the packet error rate for a packet
+consisting of $N$ words can be computed as
 \begin{equation}
-  p_{pkt} = p_{word}^{N_{pkt}} = p_{frame}^{\frac{N_{pkt}}{N_{frame}}}
+  p_N = p_w^N = p_{frame}^\frac{N}{N_{frame}}
+  \label{eq:pN}
+\end{equation}
+where $p_{frame}$ is the interpolated frame error rate and $N_{frame}
+= 832$ is the number of words in a full frame, counting also the CRC.
+%
+{ \color{red} what about the CRC of the packet? $N = \ceil{L/11}$ in
+  the code, but the CRC must also be received correctly}
+
+\subsection{Data-link layer}
+The propagation delay is very high (at \SI{50}{\m} it's already about
+10 times the transmission time of an ACK) so the random access MACs
+like CSMA are not efficient in this case. Using TDMA, the nodes can be
+seen as being linked by two i.i.d. slotted channels.
+
+The application layer sends $L=\SI{1000}{bytes}$ of data in each
+packet, its own header is long $H_{app} = \SI{24}{bytes}$ and the
+transport and network protocols add $H_{tn} = \SI{4}{bytes}$. So in
+the forward channel each packet consists of $L_f = \SI{1028}{bytes}$,
+while in the backward channel the ACK packets are long $L_b
+= \SI{28}{bytes}$.
+
+The packet error rates of the two channels are computed
+from equation (\ref{eq:pN}):
+\begin{align}
+p_f &= p_{frame}^\frac{\ceil{8 L_f / 11}}{N_{frame}} \approx p_{frame}^{0.899} \\
+p_b &= p_{frame}^\frac{\ceil{8 L_b / 11}}{N_{frame}} \approx p_{frame}^{0.025} .
+\end{align}
+
+Their duration are $T_f = \tau + \frac{8L_f}{R} \approx \tau
++ \SI{93.7}{\ms}$ and $T_b = \tau + \frac{8L_b}{R} \approx \tau
++ \SI{2.55}{\ms}$, where $\tau$ is the propagation delay, plus a guard
+time to avoid collisions due to the clock difference between the
+nodes.
+
+\subsection{ARQ}
+If the CBR window size is set to one, the ARQ behaves like a
+Stop-and-Wait.
+%
+Using TDMA or CSMA in this case does not make any
+difference, provided that the time to sense the channel and the guard
+interval are comparable.
+%
+In both cases, the average time to succesfully transmit a packet and
+receive an ACK is
+\begin{align}
+\E{T} &= (T_f + T_b) + \E{T}(1-p_{ok}) \\
+\E{T} &= \frac{T_f + T_b}{p_{ok}} \\
+\text{where} \quad p_{ok} &= (1-p_f)(1-p_b)
+\end{align}
+so the throughput is
+\begin{equation}
+S = \frac{L}{\E{T}}
 \end{equation}
 
-{\color{red} what about the 32-bit CRC? $N{pkt} = \ceil{L/11}$ in the
-  code, but the CRC must also be received correctly}
-
-The maximum achievable throughput is
-\begin{equation}
-  S = r p_{pkt}
-\end{equation}
-at a distance of \SI{50}{\m} the throughput is $S \approx
-\SI{77.24}{kb\per\s}$
-
-The simulation results are close to this value.
-
-{\color{red} The PDR of Hermes is measured at a depth of 0.5m, other
-  params for the propagation?}
-
+The probability of correct frame at \SI{50}{\m} is $p_{frame} \approx
+0.883$, so $(1-p_f) \approx 0.896$, $(1-p_b) \approx 0.997$ and
+$p_{ok} = 0.893$. So the throughput at 50m when S\&W is used should
+be \SI{43.87}{kb/s}.
