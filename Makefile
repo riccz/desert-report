@@ -1,5 +1,6 @@
 NAME=desert-report
 TEXSRCS=single-hop.tex
+BIBTEXSRCS=desert-report.bib
 
 USE_PDFLATEX=1
 VIEWPDF=xdg-open
