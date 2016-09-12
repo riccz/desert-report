@@ -120,8 +120,8 @@ set opt(pkts_per_frame)     1
 set opt(winsize)            $opt(pkts_per_frame); # CBR
 set opt(guard_interval)     0.0005
 
-set hdrsize 4; # UDP + IP
-set acksize 24; # CBR header
+set hdrsize 28; # CBR + UDP + IP
+set acksize 0; # + headers
 
 set pkt_time [expr ($opt(pktsize) + $hdrsize) * 8.0 / $opt(bitrate)]
 set ack_time [expr ($acksize + $hdrsize) * 8.0 / $opt(bitrate)]
@@ -192,9 +192,9 @@ Module/UW/CBR set period_	       $opt(cbr_period)
 Module/UW/CBR set rx_window	       $opt(winsize)
 Module/UW/CBR set tx_window	       $opt(winsize)
 Module/UW/CBR set use_arq	       1
-#Module/UW/CBR set timeout_	       $rtt
-#Module/UW/CBR set use_rtt_timeout	0
-#Module/UW/CBR set debug_	       100
+Module/UW/CBR set timeout_	       [expr $frame_duration * 2.0 ]
+Module/UW/CBR set use_rtt_timeout      1
+Module/UW/CBR set debug_	       100
 
 ### Channel ###
 MPropagation/Underwater set practicalSpreading_ 2
