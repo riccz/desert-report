@@ -109,7 +109,7 @@ set opt(bitrate)            87768.0; # bitrate in bps
 set opt(maxinterval_)	    20.0
 
 # CBR settings
-set opt(target_src_rate)    70000.0; # bits/s
+set opt(target_src_rate)    90000.0; # bits/s
 set opt(pktsize)	    1000; # bytes
 set opt(cbr_period)         [expr $opt(pktsize) * 8.0 / $opt(target_src_rate)]
 set opt(seedcbr)	    1
@@ -118,7 +118,7 @@ set opt(seedcbr)	    1
 set opt(propagation_speed)  1500.0; # m/s
 set opt(pkts_per_frame)     1
 set opt(winsize)            $opt(pkts_per_frame); # CBR
-set opt(guard_interval)     0.0005
+set opt(guard_interval)     0;#0.0005
 
 set hdrsize 28; # CBR + UDP + IP
 set acksize 0; # + headers
@@ -193,7 +193,7 @@ Module/UW/CBR set rx_window	       $opt(winsize)
 Module/UW/CBR set tx_window	       $opt(winsize)
 Module/UW/CBR set use_arq	       1
 Module/UW/CBR set timeout_	       [expr $frame_duration * 2.0 ]
-Module/UW/CBR set use_rtt_timeout      1
+Module/UW/CBR set use_rtt_timeout      0
 Module/UW/CBR set debug_	       100
 
 ### Channel ###
