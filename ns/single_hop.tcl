@@ -27,7 +27,7 @@
 # ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 # This script is used to simulate a one-hop acoustic network with a
-# CBR source with ARQ. The data-link layer is TDMA, the physical layer
+# CBR source with ARQ. The data-link layer is CSMA, the physical layer
 # simulates a pair of Hermes modems.
 #
 # Stack of the nodes
@@ -42,7 +42,7 @@
 #   +-------------------------+
 #   |  3. UW/MLL              |
 #   +-------------------------+
-#   |  2. UW/TDMA             |
+#   |  2. UW/ALOHA_CSMA       |
 #   +-------------------------+
 #   |  1. UW/HERMES/PHY       |
 #   +-------------------------+
@@ -68,7 +68,6 @@ load libuwip.so
 load libuwstaticrouting.so
 load libmphy.so
 load libmmac.so
-load libuwtdma.so
 load libuwcsmaaloha.so
 load libuwmll.so
 load libuwudp.so
@@ -113,27 +112,25 @@ set opt(target_src_rate)    90000.0; # bits/s
 set opt(pktsize)	    1000; # bytes
 set opt(cbr_period)         [expr $opt(pktsize) * 8.0 / $opt(target_src_rate)]
 set opt(seedcbr)	    1
+set opt(winsize)            1
 
-# TDMA settings
+# MAC settings
 set opt(propagation_speed)  1500.0; # m/s
-set opt(pkts_per_frame)     1
-set opt(winsize)            $opt(pkts_per_frame); # CBR
-set opt(guard_interval)     0;#0.0005
+set opt(listen_time) 0
+set opt(wait_time) 1e-9
 
-set hdrsize 28; # CBR + UDP + IP
+set hdrsize 28; # 24 CBR + 2 UDP + 2 IP
 set acksize 0; # + headers
 
 set pkt_time [expr ($opt(pktsize) + $hdrsize) * 8.0 / $opt(bitrate)]
 set ack_time [expr ($acksize + $hdrsize) * 8.0 / $opt(bitrate)]
 set prop_delay [expr $opt(node_dist) / $opt(propagation_speed)]
 
-set src_slot [expr $opt(pkts_per_frame) * $pkt_time + $opt(guard_interval) + \
-		      $prop_delay]
-set sink_slot [expr $opt(pkts_per_frame) * $ack_time + $opt(guard_interval) + \
-		       $prop_delay]
-set frame_duration [expr $src_slot + $sink_slot]
-
-
+set forward_slot [expr $pkt_time + $prop_delay + \
+			  $opt(listen_time) + $opt(wait_time)]
+set backward_slot [expr $ack_time + $prop_delay + \
+			  $opt(listen_time) + $opt(wait_time)]
+set fb_slot [expr $forward_slot + $backward_slot]
 
 if {$opt(bash_parameters)} {
 	if {$argc != 4} {
@@ -177,22 +174,29 @@ if {$opt(trace_files)} {
 # Module Configuration	#
 #########################
 
-### TDMA MAC ###
-Module/UW/TDMA set fair_mode      0
-Module/UW/TDMA set frame_duration $frame_duration
-Module/UW/TDMA set check_duration 1
-#Module/UW/TDMA set debug_	  -7
+### MAC ###
+Module/UW/CSMA_ALOHA set wait_costant_ $opt(wait_time)
+Module/UW/CSMA_ALOHA set listen_time_ $opt(listen_time)
+Module/UW/CSMA_ALOHA set debug_ 100
 
 ### APP ###
+
+set CBR_timeout [expr 1.025*(2.0*$prop_delay + \
+				    $opt(winsize)*($pkt_time+$ack_time) + \
+				    2.0*$opt(winsize)*($opt(wait_time)+$opt(listen_time)))]
+
+set CBR_dupack_thresh [expr $opt(winsize) - 1 ]
+if {$CBR_dupack_thresh < 1} { set CBR_dupack_thresh 1 }
+
 Module/UW/CBR set PoissonTraffic_      1
 Module/UW/CBR set drop_out_of_order_   0
-Module/UW/CBR set dupack_thresh	       1
+Module/UW/CBR set dupack_thresh	1 ;#$CBR_dupack_thresh   
 Module/UW/CBR set packetSize_	       $opt(pktsize)
 Module/UW/CBR set period_	       $opt(cbr_period)
 Module/UW/CBR set rx_window	       $opt(winsize)
 Module/UW/CBR set tx_window	       $opt(winsize)
 Module/UW/CBR set use_arq	       1
-Module/UW/CBR set timeout_	       [expr $frame_duration * 2.0 ]
+Module/UW/CBR set timeout_	       $CBR_timeout
 Module/UW/CBR set use_rtt_timeout      0
 Module/UW/CBR set debug_	       100
 
@@ -236,7 +240,7 @@ proc createNode { id } {
 	set ipr($id)  [new Module/UW/StaticRouting]
 	set ipif($id) [new Module/UW/IP]
 	set mll($id)  [new Module/UW/MLL]
-	set mac($id)  [new Module/UW/TDMA]
+	set mac($id)  [new Module/UW/CSMA_ALOHA]
 	set phy($id)  [new Module/UW/HERMES/PHY]
 
 	$node($id) addModule 7 $cbr($id)   1  "CBR"
@@ -262,6 +266,8 @@ proc createNode { id } {
 
 	# Set the MAC address
 	$mac($id) setMacAddr [expr $id + 5]
+	$mac($id) setNoAckMode
+	$mac($id) initialize
 
 	#Setup positions
 	set position($id) [new Position/BM]
@@ -288,18 +294,12 @@ proc createSource { id } {
 	global opt mac src_slot
 
 	createNode $id
-	$mac($id) setStartTime 0
-	$mac($id) setSlotDuration $src_slot
-	$mac($id) setGuardTime $opt(guard_interval)
 }
 
 proc createSink { id } {
 	global opt mac src_slot sink_slot
 
 	createNode $id
-	$mac($id) setStartTime $src_slot
-	$mac($id) setSlotDuration $sink_slot
-	$mac($id) setGuardTime $opt(guard_interval)
 }
 
 #################
@@ -340,11 +340,6 @@ for {set id1 0} {$id1 < $opt(nn)} {incr id1}  {
 $ns at [expr $opt(starttime) + 3]    "$cbr($opt(src_id)) start"
 $ns at [expr $opt(stoptime) - 3]     "$cbr($opt(src_id)) stop"
 
-for {set ii 0} {$ii < $opt(nn)} {incr ii} {
-	$ns at $opt(starttime)	  "$mac($ii) start"
-	$ns at $opt(stoptime)	  "$mac($ii) stop"
-}
-
 ###################
 # Final Procedure #
 ###################
@@ -355,7 +350,8 @@ proc finish {} {
 	global node_coordinates
 	global ipr_sink ipr ipif udp cbr phy phy_data_sink
 	global node_stats tmp_node_stats sink_stats tmp_sink_stats src_id sink_id
-	global pkt_time ack_time frame_duration
+	global CBR_dupack_thresh
+	global pkt_time ack_time forward_slot backward_slot fb_slot
 
 	if ($opt(verbose)) {
 		puts "-----------------------------------------------------------------"
@@ -366,11 +362,13 @@ proc finish {} {
 		puts "Packet size              : $opt(pktsize) byte(s)"
 		puts "CBR period               : $opt(cbr_period) s"
 		puts "Window size              : $opt(winsize)"
+		puts "dupACK threshold         : $CBR_dupack_thresh"
 		puts "-----------------------------------------------------------------"
 		puts "Packet time              : $pkt_time"
+		puts "Forward slot             : $forward_slot"
 		puts "ACK time                 : $ack_time"
-		puts "Frame duration           : $frame_duration"
-		puts "Guard interval           : $opt(guard_interval)"
+		puts "Backward slot            : $backward_slot"
+		puts "Packet + ACK time        : $fb_slot"
 		puts "-----------------------------------------------------------------"
 	}
 
@@ -403,10 +401,10 @@ proc finish {} {
 		puts "Delay\t: $cbr_delay,\tstd.dev. $cbr_delay_stddev"
 	}
 	
-	set mac_sent_src [$mac($src_id) get_sent_pkts]
-	set mac_sent_sink [$mac($sink_id) get_sent_pkts]
-	set mac_recv_src [$mac($src_id) get_recv_pkts]
-	set mac_recv_sink [$mac($sink_id) get_recv_pkts]
+	set mac_sent_src [$mac($src_id) getDataPktsTx]
+	set mac_sent_sink [$mac($sink_id) getDataPktsTx]
+	set mac_recv_src [$mac($src_id) getDataPktsRx]
+	set mac_recv_sink [$mac($sink_id) getDataPktsRx]
 
 	if { $mac_sent_src > 0 } {
 		set src_sink_pdr [expr 1.0 * $mac_recv_sink / $mac_sent_src]
@@ -421,7 +419,7 @@ proc finish {} {
 	}
 
 	if $opt(verbose) {
-		puts "TDMA"
+		puts "MAC:"
 		puts "Sent pkts\t: $mac_sent_src"
 		puts "Recvd pkts\t: $mac_recv_sink"
 		puts "Sent ACKs\t: $mac_sent_sink"
