@@ -1,33 +1,36 @@
-The single-hop network uses a CBR source that transmits to a CBR sink
-using a TDMA MAC and a Hermes PHY.
+The first network consists of two nodes in shallow water equipped with
+HERMES modems. One of them generates packets of constant length
+$L=\SI{1000}{bytes}$, following a Poisson process with constant rate
+$\lambda$; the other node receives the packets and acknowlegeds their
+reception.
 
 \subsection{Physical layer}
-The pair of Hermes modems is modeled as an i.i.d. channel with a
-probability of error that depends only on the distance between the
-nodes.
-
-The modems are assumed to work at the highest bitrate
-possible, \SI{150}{kb/s}, which becomes $R = \SI{87.768}{kb/s}$ taking
-into account the BCH(15,11) channel-coding, the training sequence that
+The two modems are assumed to work at the highest bitrate possible,
+\SI{150}{kb/s}, which becomes $R = \SI{87.768}{kb/s}$ taking into
+account the BCH(15,11) channel-coding, the training sequence that
 preceeds each frame and the 32-bit CRC.
-
+%
 The maximum amount of data that can be sent in one frame
 is \SI{9120}{bits} so the maximum frame size, before being
 channel-coded, is \SI{9152}{bits}.
 
-The probability of error is taken from \cite{hermes} and linearly
-interpolated. In the paper it is measured at a depth of \SI{0.5}{\m}
-and various distances, while transmitting full frames.
-%
-So, assuming that each 11-bit word is lost with probability $p_w$
-independently from the others, the packet error rate for a packet
+The error probility is taken from \cite{hermes}, where it is measured
+between two nodes at a depth of \SI{0.5}{\m} and various distances
+between \SIlist{25; 120}{\m} in a port environment. In the paper the
+nodes transmit full frames so, assuming that the errors on each 11-bit
+word are i.i.d., the probability of correctly receiving a packet
 consisting of $N$ words can be computed as
 \begin{equation}
-  p_N = p_w^N = p_{frame}^\frac{N}{N_{frame}}
+  p_N = p_w^N = p_{\mathit{fr}}^\frac{N}{N_{\mathit{fr}}}
   \label{eq:pN}
 \end{equation}
-where $p_{frame}$ is the interpolated frame error rate and $N_{frame}
-= 832$ is the number of words in a full frame, counting also the CRC.
+where $p_w$ and $p_{\mathit{fr}}$ are the probabilities of correct
+reception of, respectively, an 11-bit word and a full frame;
+$N_{\mathit{fr}} = 832$ is the number of words in a full frame,
+counting also the CRC.
+%
+The probability $p_{\mathit{fr}}$ is linearly interpolated between the
+measured values.
 %
 { \color{red} what about the CRC of the packet? $N = \ceil{L/11}$ in
   the code, but the CRC must also be received correctly}
