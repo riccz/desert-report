@@ -23,3 +23,8 @@ proc parse_args {argv opts_array} {
 	}
     }
 }
+
+proc setdefault {varname defval} {
+    upvar 1 $varname v
+    if {! [info exists v]} {set v $defval}
+}
