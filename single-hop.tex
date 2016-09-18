@@ -31,11 +31,26 @@ counting also the CRC.
 %
 The probability $p_{\mathit{fr}}$ is linearly interpolated between the
 measured values.
-%
-{ \color{red} what about the CRC of the packet? $N = \ceil{L/11}$ in
-  the code, but the CRC must also be received correctly}
 
 \subsection{Data-link layer}
+The data-link layer implements the CSMA-ALOHA protocol described
+in \cite{proto_issues}: each node listens for a short interval $T_l$
+uniformly distributed in the interval $[0.1,0.5]\si{\micro\s}$ before
+transmitting; if the channel is busy it tries again as soon as the
+current transmission ends.
+%
+Since there are only two nodes the CSMA-ALOHA can avoids collisions
+between the data packets and the acnowledgments if the source always
+has some packets queued.
+%
+In this case the source node first sends out packets one after the
+other until it fills the transmit window and it must wait for either a
+timeout to occur or an ACK to be received. During this time the sink
+node cannot reply because it always senses the channel busy; when the
+last packet is received the channel becomes idle so the sink can send
+the ACKs. The acknowledgements, like the data packets, are sent one
+after the other so the source 
+
 The propagation delay is very high (at \SI{50}{\m} it's already about
 10 times the transmission time of an ACK) so the random access MACs
 like CSMA are not efficient in this case. Using TDMA, the nodes can be
