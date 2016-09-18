@@ -51,12 +51,13 @@
 #   |   UnderwaterChannel     |
 #   +-------------------------+
 
+source "utils.tcl"
+
 ######################################
 # Flags to enable or disable options #
 ######################################
-set opt(verbose)		1
-set opt(trace_files)		1
-set opt(bash_parameters)	0
+set opt(verbose)		0
+set opt(trace_files)		0
 
 #####################
 # Library Loading   #
@@ -132,26 +133,7 @@ set backward_slot [expr $ack_time + $prop_delay + \
 			  $opt(listen_time) + $opt(wait_time)]
 set fb_slot [expr $forward_slot + $backward_slot]
 
-if {$opt(bash_parameters)} {
-	if {$argc != 4} {
-		puts "The script requires four inputs:"
-		puts "- the first for the seed"
-		puts "- the second one is for the Poisson CBR period"
-		puts "- the third one is the cbr packet size (byte);"
-		puts "- the fourth one is the distance between the nodes (m)"
-		puts "example: ns TDMA_exp.tcl 1 60 125 100"
-		puts "If you want to leave the default values, please set to 0"
-		puts "the value opt(bash_parameters) in the tcl script"
-		puts "Please try again."
-		return
-	} else {
-		set opt(seedcbr)    [lindex $argv 0]
-		set opt(cbr_period) [lindex $argv 1]
-		set opt(pktsize)    [lindex $argv 2]
-		set opt(node_dist) [lindex $argv 3]
-		
-	}
-}
+parse_args $argv opt
 
 set rng [new RNG]
 $rng seed $opt(seedcbr)
