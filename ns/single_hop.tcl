@@ -60,6 +60,8 @@ parse_args $argv opt
 # Flags to enable or disable options #
 ######################################
 setdefault opt(verbose)		0
+setdefault opt(csv_output)      0
+setdefault opt(csv_filename)    "single_hop.csv"
 setdefault opt(trace_files)	0
 
 #####################
@@ -410,6 +412,18 @@ proc finish {} {
 		puts "Source -> Sink PDR\t: $src_sink_pdr"
 		puts "Sink -> Source PDR\t: $sink_src_pdr"
 		puts "-----------------------------------------------------------------"
+	}
+
+	if {$opt(csv_output)} {
+		set f [open $opt(csv_filename) a]
+		file stat $opt(csv_filename) f_stat
+		if {$f_stat(size) == 0} {
+			puts $f "winsize, throughput, \
+                                 data_pdr, ack_pdr"
+		}
+		puts $f "$opt(winsize), $cbr_thr, \
+                         $src_sink_pdr, $sink_src_pdr" 		
+		close $f
 	}
 	
 	$ns flush-trace
