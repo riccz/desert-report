@@ -1,8 +1,8 @@
 proc lshift {listVar {count 1}} {
     upvar 1 $listVar l
     if {![info exists l]} {
-        # make the error message show the real variable name
-        error "can't read \"$listVar\": no such variable"
+	# make the error message show the real variable name
+	error "can't read \"$listVar\": no such variable"
     }
     if {![llength $l]} {error Empty}
     set r [lrange $l 0 [incr count -1]]
