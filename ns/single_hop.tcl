@@ -117,8 +117,8 @@ setdefault opt(pktsize)	    1000; # bytes
 setdefault opt(cbr_period)         [expr $opt(pktsize) * 8.0 / $opt(target_src_rate)]
 setdefault opt(seedcbr)	    1
 setdefault opt(winsize)            1
-setdefault opt(CBR_dupack_thresh) [expr $opt(winsize) - 1 ]
-if {$opt(CBR_dupack_thresh) < 1} { set opt(CBR_dupack_thresh) 1 }
+setdefault opt(CBR_dupack_thresh) 1 ;# [expr $opt(winsize) - 1 ]
+#if {$opt(CBR_dupack_thresh) < 1} { set opt(CBR_dupack_thresh) 1 }
 
 
 # MAC settings
@@ -173,7 +173,7 @@ Module/UW/CSMA_ALOHA set listen_time_ $opt(listen_time)
 ### APP ###
 Module/UW/CBR set PoissonTraffic_      1
 Module/UW/CBR set drop_out_of_order_   0
-Module/UW/CBR set dupack_thresh	       1 ;# $opt(CBR_dupack_thresh)
+Module/UW/CBR set dupack_thresh	       $opt(CBR_dupack_thresh)
 Module/UW/CBR set packetSize_	       $opt(pktsize)
 Module/UW/CBR set period_	       $opt(cbr_period)
 Module/UW/CBR set rx_window	       $opt(winsize)
