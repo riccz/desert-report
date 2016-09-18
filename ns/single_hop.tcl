@@ -53,11 +53,14 @@
 
 source "utils.tcl"
 
+array set opt {}
+parse_args $argv opt
+
 ######################################
 # Flags to enable or disable options #
 ######################################
-set opt(verbose)		0
-set opt(trace_files)		0
+setdefault opt(verbose)		0
+setdefault opt(trace_files)	0
 
 #####################
 # Library Loading   #
@@ -88,37 +91,40 @@ $ns use-Miracle
 ##################
 # Tcl variables	 #
 ##################
-set opt(start_clock) [clock seconds]
+setdefault opt(start_clock) [clock seconds]
 
-set opt(nn)		    2; # Number of Nodes
-set opt(src_id)             0
-set opt(sink_id)            1
-set opt(node_dist)	    50.0
-set opt(node_depth)         0.5
+setdefault opt(nn)		    2; # Number of Nodes
+setdefault opt(src_id)             0
+setdefault opt(sink_id)            1
+setdefault opt(node_dist)	    50.0
+setdefault opt(node_depth)         0.5
 
-set opt(starttime)	    1
-set opt(stoptime)	    5001
-set opt(txduration)	    [expr $opt(stoptime) - $opt(starttime)]
+setdefault opt(starttime)	    1
+setdefault opt(stoptime)	    5001
+setdefault opt(txduration)	    [expr $opt(stoptime) - $opt(starttime)]
 
 # Hermes settings taken from test_uwhermesphy_simple.tcl
-set opt(txpower)            180.0; # Power transmitted in dB re uPa
-set opt(freq)               300000.0; # Frequency used in Hz
-set opt(bw)                 75000.0; # Bandwidth used in Hz
-set opt(bitrate)            87768.0; # bitrate in bps
+setdefault opt(txpower)            180.0; # Power transmitted in dB re uPa
+setdefault opt(freq)               300000.0; # Frequency used in Hz
+setdefault opt(bw)                 75000.0; # Bandwidth used in Hz
+setdefault opt(bitrate)            87768.0; # bitrate in bps
 
-set opt(maxinterval_)	    20.0
+setdefault opt(maxinterval_)	    20.0
 
 # CBR settings
-set opt(target_src_rate)    90000.0; # bits/s
-set opt(pktsize)	    1000; # bytes
-set opt(cbr_period)         [expr $opt(pktsize) * 8.0 / $opt(target_src_rate)]
-set opt(seedcbr)	    1
-set opt(winsize)            1
+setdefault opt(target_src_rate)    90000.0; # bits/s
+setdefault opt(pktsize)	    1000; # bytes
+setdefault opt(cbr_period)         [expr $opt(pktsize) * 8.0 / $opt(target_src_rate)]
+setdefault opt(seedcbr)	    1
+setdefault opt(winsize)            1
+setdefault opt(CBR_dupack_thresh) [expr $opt(winsize) - 1 ]
+if {$opt(CBR_dupack_thresh) < 1} { set opt(CBR_dupack_thresh) 1 }
+
 
 # MAC settings
-set opt(propagation_speed)  1500.0; # m/s
-set opt(listen_time) 0
-set opt(wait_time) 1e-9
+setdefault opt(propagation_speed)  1500.0; # m/s
+setdefault opt(listen_time) 0.4e-6
+setdefault opt(wait_time) 0.1e-6
 
 set hdrsize 28; # 24 CBR + 2 UDP + 2 IP
 set acksize 0; # + headers
@@ -133,7 +139,10 @@ set backward_slot [expr $ack_time + $prop_delay + \
 			  $opt(listen_time) + $opt(wait_time)]
 set fb_slot [expr $forward_slot + $backward_slot]
 
-parse_args $argv opt
+setdefault opt(CBR_timeout) \
+	[expr 1.025*(2.0*$prop_delay + \
+			     $opt(winsize)*($pkt_time+$ack_time) + \
+			     2.0*$opt(winsize)*($opt(wait_time)+$opt(listen_time)))]
 
 set rng [new RNG]
 $rng seed $opt(seedcbr)
@@ -159,28 +168,20 @@ if {$opt(trace_files)} {
 ### MAC ###
 Module/UW/CSMA_ALOHA set wait_costant_ $opt(wait_time)
 Module/UW/CSMA_ALOHA set listen_time_ $opt(listen_time)
-Module/UW/CSMA_ALOHA set debug_ 100
+#Module/UW/CSMA_ALOHA set debug_ 100
 
 ### APP ###
-
-set CBR_timeout [expr 1.025*(2.0*$prop_delay + \
-				    $opt(winsize)*($pkt_time+$ack_time) + \
-				    2.0*$opt(winsize)*($opt(wait_time)+$opt(listen_time)))]
-
-set CBR_dupack_thresh [expr $opt(winsize) - 1 ]
-if {$CBR_dupack_thresh < 1} { set CBR_dupack_thresh 1 }
-
 Module/UW/CBR set PoissonTraffic_      1
 Module/UW/CBR set drop_out_of_order_   0
-Module/UW/CBR set dupack_thresh	1 ;#$CBR_dupack_thresh   
+Module/UW/CBR set dupack_thresh	       1 ;# $opt(CBR_dupack_thresh)
 Module/UW/CBR set packetSize_	       $opt(pktsize)
 Module/UW/CBR set period_	       $opt(cbr_period)
 Module/UW/CBR set rx_window	       $opt(winsize)
 Module/UW/CBR set tx_window	       $opt(winsize)
 Module/UW/CBR set use_arq	       1
-Module/UW/CBR set timeout_	       $CBR_timeout
+Module/UW/CBR set timeout_	       $opt(CBR_timeout)
 Module/UW/CBR set use_rtt_timeout      0
-Module/UW/CBR set debug_	       100
+#Module/UW/CBR set debug_	       100
 
 ### Channel ###
 MPropagation/Underwater set practicalSpreading_ 2
@@ -332,7 +333,6 @@ proc finish {} {
 	global node_coordinates
 	global ipr_sink ipr ipif udp cbr phy phy_data_sink
 	global node_stats tmp_node_stats sink_stats tmp_sink_stats src_id sink_id
-	global CBR_dupack_thresh
 	global pkt_time ack_time forward_slot backward_slot fb_slot
 
 	if ($opt(verbose)) {
@@ -344,7 +344,8 @@ proc finish {} {
 		puts "Packet size              : $opt(pktsize) byte(s)"
 		puts "CBR period               : $opt(cbr_period) s"
 		puts "Window size              : $opt(winsize)"
-		puts "dupACK threshold         : $CBR_dupack_thresh"
+		puts "dupACK threshold         : $opt(CBR_dupack_thresh)"
+		puts "CBR timeout              : $opt(CBR_timeout)"
 		puts "-----------------------------------------------------------------"
 		puts "Packet time              : $pkt_time"
 		puts "Forward slot             : $forward_slot"
