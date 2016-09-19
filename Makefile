@@ -1,5 +1,5 @@
 NAME=desert-report
-TEXSRCS=introduction.tex single-hop.tex multi-hop.tex conclusions.tex
+TEXSRCS=introduction.tex single-hop.tex multi-hop.tex conclusions.tex plots/*.tex
 BIBTEXSRCS=desert-report.bib
 
 USE_PDFLATEX=1
