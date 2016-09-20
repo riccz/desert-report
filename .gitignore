@@ -8,3 +8,6 @@
 /*.out
 /*.pdf
 /*.run.xml
+/ns/*.csv
+/ns/*.tr
+__pycache__/
