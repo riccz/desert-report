@@ -34,28 +34,55 @@ The probability $p_{\mathit{fr}}$ is linearly interpolated between the
 measured values.
 
 \subsection{Data-link layer}
-The data-link layer implements the CSMA-ALOHA protocol described
-in \cite{proto_issues}: each node listens for a short interval $T_l$
-uniformly distributed in the interval $[0.1,0.5]\si{\micro\s}$ before
-transmitting; if the channel is busy it tries again as soon as the
-current transmission ends.
+The data-link layer implements the CSMA-ALOHA protocol described in
+\cite{proto_issues}: each node listens for a short interval $T_l$
+before transmitting; if the channel is busy it tries again as soon as
+the current transmission ends. When a node has more than one packet to
+send it leaves a ``time gap'' of length $T_l$ between them.
 %
-Since there are only two nodes the CSMA-ALOHA can avoids collisions
-between the data packets and the acnowledgments if the source always
-has some packets queued.
+Since there are only two nodes the CSMA-ALOHA can avoid collisions
+between the data packets and the acnowledgments, under the assumption
+that the source always has some packets queued and that it uses a
+sliding window. If the time $T_l$ is constant each node keeps the
+channel busy while it has some packets to transmit.
 %
-In this case the source node first sends out packets one after the
-other until it fills the transmit window and it must wait for either a
-timeout to occur or an ACK to be received. During this time the sink
-node cannot reply because it always senses the channel busy; when the
-last packet is received the channel becomes idle so the sink can send
-the ACKs. The acknowledgements, like the data packets, are sent one
-after the other so the source 
+In the case of the source node this corresponds to sending out packets
+one after the other until the transmit window is full. When the last
+packet is received by the sink node, it replies with a number of ACKs
+equal to the number packets correclty received.
 
-The propagation delay is very high (at \SI{50}{\m} it's already about
-10 times the transmission time of an ACK) so the random access MACs
-like CSMA are not efficient in this case. Using TDMA, the nodes can be
-seen as being linked by two i.i.d. slotted channels.
+\subsection{Application layer}
+The application layer implements an ARQ algorithm that work in this
+way:
+\begin{itemize}
+\item to each generated packets is assigned an incremntal sequence
+  number starting from 1;
+\item the generated packets are stored in a queue, then they are sent
+  one by one until the number of packets in flight is equal to the
+  size of the transmit window;
+\item The first packet after an idle period starts the retransmission
+  timer, further packets do not reset it;
+\item the sink stores the received packets in a queue and replies to
+  each one with a cumulative ACK that contains the SN of the next
+  packet in the received sequence, eventual duplicate packets are
+  dropped but still ACKed;
+\item the reordered packets are dequeued and their statistics
+  collected (throughput, delay and count);
+\item the source either receives an ACK or a timout occurs, if the ACK
+  acknowlwdges at least one pending packet the transmit window slides
+  forward and the retransmission timer is reset, otherwise (timeout of
+  duplicate ACK) the packet with minimum SN still in the queue is
+  retransmitted.
+\end{itemize}
+
+If the transmit and receive window sizes are both set to 1, this
+strategy becomes the Stop-and-Wait ARQ. If the retransmission timeout
+is chosen to be greater than the round trip time (the time between the
+transmission of a packet and the reception of an ACK) there can be no
+collisions, so the nodes can be seen as being linked by two
+i.i.d. channels.
+
+In this case the average throughput can be computed.
 
 The application layer sends $L=\SI{1000}{bytes}$ of data in each
 packet, its own header is long $H_{app} = \SI{24}{bytes}$ and the
@@ -67,37 +94,33 @@ while in the backward channel the ACK packets are long $L_b
 The packet error rates of the two channels are computed
 from equation (\ref{eq:pN}):
 \begin{align}
-p_f &= p_{frame}^\frac{\ceil{8 L_f / 11}}{N_{frame}} \approx p_{frame}^{0.899} \\
-p_b &= p_{frame}^\frac{\ceil{8 L_b / 11}}{N_{frame}} \approx p_{frame}^{0.025} .
+  p_f &= p_{frame}^\frac{\ceil{8 L_f / 11}}{N_{frame}} \approx p_{frame}^{0.899} \\
+  p_b &= p_{frame}^\frac{\ceil{8 L_b / 11}}{N_{frame}} \approx p_{frame}^{0.025} .
 \end{align}
 
-Their duration are $T_f = \tau + \frac{8L_f}{R} \approx \tau
-+ \SI{93.7}{\ms}$ and $T_b = \tau + \frac{8L_b}{R} \approx \tau
-+ \SI{2.55}{\ms}$, where $\tau$ is the propagation delay, plus a guard
-time to avoid collisions due to the clock difference between the
-nodes.
+Their duration are $T_f = \tau + \frac{8L_f}{R} + T_l \approx \tau +
+T_l + \SI{93.7}{\ms}$ and $T_b = \tau + \frac{8L_b}{R} +T_l \approx
+\tau + T_l + \SI{2.55}{\ms}$, where $\tau \approx
+\frac{d}{\SI{1500}{\m\per\s}}$ is the propagation delay and the
+lsitenig time $T_l$ is negligible.
 
-\subsection{ARQ}
-If the CBR window size is set to one, the ARQ behaves like a
-Stop-and-Wait.
-%
-Using TDMA or CSMA in this case does not make any
-difference, provided that the time to sense the channel and the guard
-interval are comparable.
-%
-In both cases, the average time to succesfully transmit a packet and
-receive an ACK is
+The average round trip time is
 \begin{align}
-\E{T} &= (T_f + T_b) + \E{T}(1-p_{ok}) \\
-\E{T} &= \frac{T_f + T_b}{p_{ok}} \\
-\text{where} \quad p_{ok} &= (1-p_f)(1-p_b)
+  \E{T} &= (T_f + T_b) + \E{T}(1-p_{ok}) \\
+  \E{T} &= \frac{T_f + T_b}{p_{ok}}
 \end{align}
-so the throughput is
+where $T_f$, $T_b$ are the times between the start of the transmission
+and the end of the reception of, respectively, a data packet and an
+ACK; the probability of receiving a response ACK is $p_{ok} =
+(1-p_f)(1-p_b)$, the product of the probabilities of correct reception
+of a data packet and an ACK.
+%
+So the throughput is
 \begin{equation}
-S = \frac{L}{\E{T}}
+  S = \frac{L}{\E{T}}
 \end{equation}
 
-The probability of correct frame at \SI{50}{\m} is $p_{frame} \approx
+The probability of correct frame at \SI{50}{\m} is $p_{fr} \approx
 0.883$, so $(1-p_f) \approx 0.896$, $(1-p_b) \approx 0.997$ and
-$p_{ok} = 0.893$. So the throughput at 50m when S\&W is used should
-be \SI{43.87}{kb/s}.
+$p_{ok} = 0.893$. So the throughput at 50m when S\&W is used should be
+\SI{43.87}{kb/s}.
