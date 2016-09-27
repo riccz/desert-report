@@ -125,7 +125,7 @@ setdefault opt(CBR_dupack_thresh) 1 ;# [expr $opt(winsize) - 1 ]
 
 # MAC settings
 setdefault opt(propagation_speed)  1500.0; # m/s
-setdefault opt(listen_time) 0.4e-6
+setdefault opt(listen_time) 0
 setdefault opt(wait_time) 0.1e-6
 
 set hdrsize 28; # 24 CBR + 2 UDP + 2 IP
@@ -419,10 +419,12 @@ proc finish {} {
 		file stat $opt(csv_filename) f_stat
 		if {$f_stat(size) == 0} {
 			puts $f "winsize, throughput, \
-                                 data_pdr, ack_pdr"
+                                 data_pdr, ack_pdr, \
+                                 node_dist"
 		}
 		puts $f "$opt(winsize), $cbr_thr, \
-                         $src_sink_pdr, $sink_src_pdr" 		
+                         $src_sink_pdr, $sink_src_pdr, \
+                         $opt(node_dist)" 		
 		close $f
 	}
 	
