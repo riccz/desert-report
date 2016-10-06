@@ -28,3 +28,29 @@ proc setdefault {varname defval} {
     upvar 1 $varname v
     if {! [info exists v]} {set v $defval}
 }
+
+proc csv_fields {arrayname} {
+    upvar 1 $arrayname a
+    set sorted [lsort [array name a]]
+    if {[string first "," $sorted] == -1} {
+	return [join $sorted ", "]
+    } else {
+	error "One of the fields contains a comma"
+    }
+}
+
+proc csv_line {arrayname} {
+    upvar 1 $arrayname a
+    set sorted [lsort [array name a]]
+    if {[string first "," $sorted] != -1} {
+	error "One of the fields contains a comma"
+    }
+    set vs [list]
+    foreach k $sorted {
+	if {[string first "," $a($k)] != -1} {
+	    error "One of the values contains a comma"
+	}
+	lappend vs $a($k)
+    }
+    return [join $vs ", "]
+}
