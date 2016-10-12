@@ -119,9 +119,7 @@ setdefault opt(pktsize)	    1000; # bytes
 setdefault opt(cbr_period)         [expr $opt(pktsize) * 8.0 / $opt(target_src_rate)]
 setdefault opt(seedcbr)	    1
 setdefault opt(winsize)            1
-setdefault opt(CBR_dupack_thresh) 1 ;# [expr $opt(winsize) - 1 ]
-#if {$opt(CBR_dupack_thresh) < 1} { set opt(CBR_dupack_thresh) 1 }
-
+setdefault opt(CBR_dupack_thresh) 1
 
 # MAC settings
 setdefault opt(propagation_speed)  1500.0; # m/s
@@ -323,6 +321,7 @@ for {set id1 0} {$id1 < $opt(nn)} {incr id1}  {
 # Start/Stop Timers #
 #####################
 $ns at [expr $opt(starttime) + 3]    "$cbr($opt(src_id)) start"
+$ns at [expr $opt(starttime) + 3]    "$cbr($opt(sink_id)) resetStats"
 $ns at [expr $opt(stoptime) - 3]     "$cbr($opt(src_id)) stop"
 
 ###################
@@ -372,6 +371,8 @@ proc finish {} {
 	set cbr_delay [$cbr($sink_id) getdelay]
 	set cbr_delay_stddev [$cbr($sink_id) getdelaystd]
 
+	set cbr_dup_recvd [$cbr($sink_id) getduppkts]
+
 	if ($opt(verbose)) {
 		puts "CBR"
 		puts "Throughput    : $cbr_thr"
@@ -379,7 +380,10 @@ proc finish {} {
 		puts "CBR sent Packets	       : $cbr_sent_pkts"
 		puts "CBR received Packets     : $cbr_recv_pkts"
 		puts "CBR processed pkts       : [$cbr($sink_id) getprocpkts]"
-
+		puts "CBR duplicate pkts recvd : $cbr_dup_recvd"
+		puts "CBR retx dupack          : [$cbr($src_id) getdupackretxpkts]"
+		puts "CBR timeout dupack       : [$cbr($src_id) gettimeoutretxpkts]"
+		
 		puts "FTT\t: $cbr_ftt,\tstd.dev. $cbr_ftt_stddev"
 		puts "BTT\t: $cbr_btt,\tstd.dev. $cbr_btt_stddev"
 		puts "RTT\t: $cbr_rtt,\tstd.dev. $cbr_rtt_stddev"
