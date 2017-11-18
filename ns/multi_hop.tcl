@@ -1,4 +1,3 @@
-# -*- mode: tcl; indent-tabs-mode: t; tab-width: 8; tcl-indent-level: 8; tcl-continued-indent-level: 8; -*-
 #
 # Copyright (c) 2015 Regents of the SIGNET lab, University of Padova.
 # All rights reserved.
@@ -27,44 +26,48 @@
 # OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 # ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-# This script is used to test UW-OPTICAL-Propagation and UW-OPTICAL-PHY with
-# addition of ambient light noise provided by Hydrolight LUT.
-# There are 2 nodes that can transmit each other packets in a point 2 point
-# netwerk with a CBR (Constant Bit Rate) Application Module
-#
-# UW/Optical/Channel and UW/OPTICAL/PHY is used for PHY layer and channel
+# This script is used to simulate a multihop optical network where a
+# source sends packets to a sink through a certain number of relay
+# nodes
 #
 # Author: Filippo Campagnaro <campagn1@dei.unipd.it>
 # Version: 1.0.0
 #
 #
 # Stack of the nodes
-#   +-------------------------+
-#   |  7. UW/CBR              |
-#   +-------------------------+
-#   |  6. UW/UDP              |
-#   +-------------------------+
-#   |  5. UW/STATICROUTING    |
-#   +-------------------------+
-#   |  4. UW/IP               |
-#   +-------------------------+
-#   |  3. UW/MLL              |
-#   +-------------------------+
-#   |  2. UW/CSMA_ALOHA       |
-#   +-------------------------+
-#   |  1. UW/OPTICAL/PHY      |
-#   +-------------------------+
-#           |         |
-#   +-------------------------+
-#   |   UW/Optical/Channel    |
-#   +-------------------------+
+#   +--------------------------------+
+#   |  7. UW/CBRMH_(SRC|RELAY|SINK)  |
+#   +--------------------------------+
+#   |  6. UW/UDP                     |
+#   +--------------------------------+
+#   |  5. UW/STATICROUTING           |
+#   +--------------------------------+
+#   |  4. UW/IP                      |
+#   +--------------------------------+
+#   |  3. UW/MLL                     |
+#   +--------------------------------+
+#   |  2. UW/TDMA                    |
+#   +--------------------------------+
+#   |  1. UW/OPTICAL/PHY             |
+#   +--------------------------------+
+#              |         |
+#   +--------------------------------+
+#   |   UW/Optical/Channel           |
+#   +--------------------------------+
+
+source "utils.tcl"
+
+array set opt {}
+parse_args $argv opt
 
 ######################################
 # Flags to enable or disable options #
 ######################################
-set opt(verbose) 		1
-set opt(trace_files)		1
-set opt(bash_parameters) 	1
+setdefault opt(verbose)		1
+setdefault opt(csv_output)      0
+setdefault opt(csv_filename)    "multi_hop.csv"
+setdefault opt(trace_files)	0
+setdefault opt(trace_filename)  "multi_hop.tr"
 
 #####################
 # Library Loading   #
@@ -87,131 +90,104 @@ load libuwoptical_phy.so
 #############################
 # NS-Miracle initialization #
 #############################
-# You always need the following two lines to use the NS-Miracle simulator
 set ns [new Simulator]
 $ns use-Miracle
+
+if $opt(trace_files) {
+	set tf [open $opt(trace_filename) w]
+} else {
+	set tf [open "/dev/null" w]
+}
+$ns trace-all $tf
 
 ##################
 # Tcl variables  #
 ##################
-set opt(start_clock) [clock seconds]
+setdefault opt(start_clock) [clock seconds]
 
-set opt(starttime)          1
-set opt(stoptime)           101
-set opt(txduration)         [expr $opt(stoptime) - $opt(starttime)] ;# Duration of the simulation
+setdefault opt(nn)                 11
+setdefault opt(src_id)             0
+setdefault opt(sink_id)            [expr $opt(nn)-1]
+setdefault opt(total_dist)         50
+setdefault opt(node_depth)         40
+set internode_dist                 [expr $opt(total_dist) / ($opt(nn) - 1.0)]
 
-set opt(maxinterval_)       10.0
+setdefault opt(starttime)          1
+setdefault opt(stoptime)           101
+setdefault opt(txduration)         [expr $opt(stoptime) - $opt(starttime)]
 
-set opt(freq)              10000000
-set opt(bw)                100000
-set opt(bitrate)           1000000
-set opt(txpower)           50; # Watt
-set opt(opt_acq_db)        10
-set opt(temperatura)       293.15 ; # in Kelvin
-set opt(txArea)            0.000010
-set opt(rxArea)            0.0000011 ; # receveing area, it has to be the same for optical physical and propagation
-set opt(c)                 0.4 ; # seawater attenation coefficient
-set opt(theta)             1
-set opt(id)                [expr 1.0e-9]
-set opt(il)                [expr 1.0e-6]
-set opt(shuntRes)          [expr 1.49e9]
-set opt(sensitivity)       0.26
-#set opt(LUTpath)           "dbs/optical_noise/LUT.txt"
-set opt(LUTpath)           "dbs/optical_noise/scenario2/Pc0.4ab_depth40.ascii"
+# PHY settings
+setdefault opt(maxinterval_)       10.0
+
+setdefault opt(freq)              10000000
+setdefault opt(bw)                100000
+setdefault opt(bitrate)           1000000
+setdefault opt(txpower)           50; # Watt
+setdefault opt(opt_acq_db)        10
+setdefault opt(temperatura)       293.15 ; # in Kelvin
+setdefault opt(txArea)            0.000010
+setdefault opt(rxArea)            0.0000011 ; # receveing area, it has to be the same for optical physical and propagation
+setdefault opt(c)                 0.4 ; # seawater attenation coefficient
+setdefault opt(theta)             1
+setdefault opt(id)                [expr 1.0e-9]
+setdefault opt(il)                [expr 1.0e-6]
+setdefault opt(shuntRes)          [expr 1.49e9]
+setdefault opt(sensitivity)       0.26
+setdefault opt(LUTpath)           "dbs/optical_noise/LUT.txt"
+#setdefault opt(LUTpath)           "dbs/optical_noise/scenario2/Pc0.4ab_depth40.ascii"
+
+setdefault opt(phy_interf_model)   "OOK"
+setdefault opt(use_reed_solomon)   0
+setdefault opt(rs_n)               7
+setdefault opt(rs_k)               5
+
+# MAC settings
+setdefault opt(num_slots)          3
+setdefault opt(guard_time)         500e-6
+
+# CBR settings
+setdefault opt(target_src_rate)    400000; # bits/s
+setdefault opt(pktsize)	           1000; # bytes
+setdefault opt(cbr_period)         [expr $opt(pktsize) * 8.0 / $opt(target_src_rate)]
+setdefault opt(seedcbr)	           1
+setdefault opt(winsize)            [expr round(ceil($opt(num_slots)/2.0 + $opt(nn) + ($opt(nn)-2) * ($opt(num_slots)-1) + 1)) ]
+setdefault opt(CBR_dupack_thresh)  1
+setdefault opt(use_relays)         0
+setdefault opt(use_arq)            1
+setdefault opt(use_rtt_timeout)    0
+setdefault opt(CBR_timeout)        1
 
 set rng [new RNG]
-
-if {$opt(bash_parameters)} {
-	if {$argc != 7} {
-		puts "The script requires 7 inputs:"
-		puts "ns nhops_optical.tcl <seed> <packet period> <packet length> <src-dst distance> <num. of nodes> <num. of slots> <guard interval>"
-		puts "If you want to leave the default values, please set to 0"
-		puts "the value opt(bash_parameters) in the tcl script"
-		puts "Please try again."
-		return
-	} else {
-		set opt(seedcbr)    [lindex $argv 0]
-		set opt(cbr_period) [lindex $argv 1]
-		set opt(pktsize)    [lindex $argv 2]
-		set opt(tot_dist)   [lindex $argv 3]
-		set opt(nn)         [lindex $argv 4]
-		set opt(num_slots)  [lindex $argv 5]
-		set opt(guard_time)  [lindex $argv 6]
-		$rng seed         $opt(seedcbr)
-	}
-} else {
-	set opt(seedcbr)    1
-	set opt(cbr_period) [expr 1e-3]
-	set opt(pktsize)    1000
-	set opt(tot_dist)   100
-	set opt(nn)         21
-	set opt(num_slots)  5
-	set opt(guard_time)  0.001
-	$rng seed         $opt(seedcbr)
-}
-
-set opt(use_reed_solomon) 0
-set opt(rs_n) 5
-set opt(rs_k) 5
-
-set opt(use_arq) 1
-set opt(use_relays) 0
-set opt(use_rtt_timeout) 0
-set opt(dupack_thresh) 2
-set opt(cbr_timeout) 10000.0
-set opt(cbr_window) \
-	[expr round(ceil($opt(num_slots)/2.0 + $opt(nn) + \
-				 ($opt(nn)-2) * ($opt(num_slots)-1) + 1)) ]
-
-# Set the slot duration to transmit exactly one packet (with headers + coding)
-# and one ACK if ARQ is enabled
-set packet_header_size 4; #UDP+IP
-set ack_size [expr 24+$packet_header_size]; # CBR header+UDP+IP
-set packet_time [expr ($opt(pktsize) + $packet_header_size) * 8.0 / $opt(bitrate)]
-if $opt(use_arq) {
-	set packet_time [expr $packet_time + $ack_size * 8.0 / $opt(bitrate)]
-}
-if $opt(use_reed_solomon) {
-	set packet_time [expr $packet_time * $opt(rs_n) / $opt(rs_k)]
-}
-set opt(frame_duration) [expr ($packet_time + $opt(guard_time)) * $opt(num_slots)]
-
+$rng seed $opt(seedcbr)
 set rnd_gen [new RandomVariable/Uniform]
 $rnd_gen use-rng $rng
-if {$opt(trace_files)} {
-	set opt(tracefilename) "./nhops_optical.tr"
-	set opt(tracefile) [open $opt(tracefilename) w]
-	set opt(cltracefilename) "./nhops_optical.cltr"
-	set opt(cltracefile) [open $opt(tracefilename) w]
-} else {
-	set opt(tracefilename) "/dev/null"
-	set opt(tracefile) [open $opt(tracefilename) w]
-	set opt(cltracefilename) "/dev/null"
-	set opt(cltracefile) [open $opt(cltracefilename) w]
-}
 
 #########################
 # Module Configuration  #
 #########################
-Module/UW/CBRMH_SRC set PoissonTraffic_      1
-Module/UW/CBRMH_SRC set dupack_thresh        $opt(dupack_thresh)
-Module/UW/CBRMH_SRC set packetSize_          $opt(pktsize)
-Module/UW/CBRMH_SRC set period_              $opt(cbr_period)
-Module/UW/CBRMH_SRC set timeout_             $opt(cbr_timeout)
-Module/UW/CBRMH_SRC set tx_window            $opt(cbr_window)
-Module/UW/CBRMH_SRC set use_arq              $opt(use_arq)
-Module/UW/CBRMH_SRC set use_rtt_timeout      $opt(use_rtt_timeout)
 
-Module/UW/CBRMH_SINK set rx_window            $opt(cbr_window)
-Module/UW/CBRMH_SINK set use_arq              $opt(use_arq)
+# MAC
+set hdrsize 28; # 24 CBR + 2 UDP + 2 IP
+set acksize 0; # + headers
 
-Module/UW/CBRMH_RELAY set dupack_thresh       $opt(dupack_thresh)
-Module/UW/CBRMH_RELAY set buffer_enabled      $opt(use_relays)
+set packet_time [expr ($opt(pktsize) + $hdrsize) * 8.0 / $opt(bitrate)]
+if $opt(use_arq) {; # Send a pkt forward and an ack backward in the same slot
+	set packet_time [expr $packet_time + ($acksize + $hdrsize) * 8.0 / $opt(bitrate)]
+}
+if $opt(use_reed_solomon) {; # Coding -> size increase
+	set packet_time [expr $packet_time * $opt(rs_n) / $opt(rs_k)]
+}
+set frame_duration [expr ($packet_time + $opt(guard_time)) * $opt(num_slots)]
 
-#Module/UW/CBRMH_RELAY set debug_            100
-#Module/UW/CBRMH_SINK set debug_               100
-#Module/UW/CBRMH_SRC set debug_               100
+Module/UW/TDMA set frame_duration $frame_duration
+Module/UW/TDMA set fair_mode 1
+Module/UW/TDMA set tot_slots $opt(num_slots)
+Module/UW/TDMA set guard_time $opt(guard_time)
+Module/UW/TDMA set check_duration 1
+Module/UW/TDMA set send_out_of_order 1
+#Module/UW/TDMA set debug_ -7
 
+# PHY
 Module/UW/OPTICAL/PHY   set TxPower_                    $opt(txpower)
 Module/UW/OPTICAL/PHY   set BitRate_                    $opt(bitrate)
 Module/UW/OPTICAL/PHY   set AcquisitionThreshold_dB_    $opt(opt_acq_db)
@@ -232,6 +208,7 @@ Module/UW/OPTICAL/Propagation set At_       $opt(txArea)
 Module/UW/OPTICAL/Propagation set c_        $opt(c)
 Module/UW/OPTICAL/Propagation set theta_    $opt(theta)
 #Module/UW/OPTICAL/Propagation set debug_    -7
+
 set propagation [new Module/UW/OPTICAL/Propagation]
 $propagation setOmnidirectional
 
@@ -241,11 +218,25 @@ set data_mask [new MSpectralMask/Rect]
 $data_mask setFreq       $opt(freq)
 $data_mask setBandwidth  $opt(bw)
 
-Module/UW/TDMA set frame_duration $opt(frame_duration)
-Module/UW/TDMA set fair_mode 1
-Module/UW/TDMA set tot_slots $opt(num_slots)
-Module/UW/TDMA set guard_time $opt(guard_time)
-#Module/UW/TDMA set debug_ -7
+# CBR
+Module/UW/CBRMH_SRC set PoissonTraffic_      1
+Module/UW/CBRMH_SRC set dupack_thresh        $opt(CBR_dupack_thresh)
+Module/UW/CBRMH_SRC set packetSize_          $opt(pktsize)
+Module/UW/CBRMH_SRC set period_              $opt(cbr_period)
+Module/UW/CBRMH_SRC set timeout_             $opt(CBR_timeout)
+Module/UW/CBRMH_SRC set tx_window            $opt(winsize)
+Module/UW/CBRMH_SRC set use_arq              $opt(use_arq)
+Module/UW/CBRMH_SRC set use_rtt_timeout      $opt(use_rtt_timeout)
+
+Module/UW/CBRMH_SINK set rx_window            $opt(winsize)
+Module/UW/CBRMH_SINK set use_arq              $opt(use_arq)
+
+Module/UW/CBRMH_RELAY set dupack_thresh       $opt(CBR_dupack_thresh)
+Module/UW/CBRMH_RELAY set buffer_enabled      $opt(use_relays)
+
+#Module/UW/CBRMH_RELAY set debug_            100
+#Module/UW/CBRMH_SINK set debug_               100
+#Module/UW/CBRMH_SRC set debug_               100
 
 ################################
 # Procedure(s) to create nodes #
@@ -253,8 +244,9 @@ Module/UW/TDMA set guard_time $opt(guard_time)
 proc createNode { id } {
 	global channel ns cbr position node udp portnum ipr ipif
 	global opt mll mac propagation data_mask
+	global internode_dist
 
-	set node($id) [$ns create-M_Node $opt(tracefile) $opt(cltracefile)]
+	set node($id) [$ns create-M_Node]
 
 	set udp($id)  [new Module/UW/UDP]
 	set ipr($id)  [new Module/UW/StaticRouting]
@@ -284,16 +276,22 @@ proc createNode { id } {
 	$phy($id) setInterference $interf_data($id)
 	$phy($id) setPropagation $propagation
 	$phy($id) setSpectralMask $data_mask
-	$phy($id) setLUTFileName "$opt(LUTpath)"
+	$phy($id) setLUTFileName $opt(LUTpath)
 	$phy($id) setLUTSeparator " "
 	$phy($id) useLUT
-	$phy($id) setInterferenceModel "OOK"
-
+	$phy($id) setInterferenceModel $opt(phy_interf_model)
 
 	$ipif($id) addr [expr $id +1]
 
 	$mac($id) setMacAddr [expr $id + 5]
 	$mac($id) setSlotNumber [expr $id % $opt(num_slots)]
+
+	set position($id) [new Position/BM]
+	$node($id) addPosition $position($id)
+
+	$position($id) setX_ [expr $id * $internode_dist / sqrt(2)]
+	$position($id) setY_ [expr $id * $internode_dist / sqrt(2)]
+	$position($id) setZ_ [expr - $opt(node_depth)]
 }
 
 proc createSourceNode { id } {
@@ -303,7 +301,7 @@ proc createSourceNode { id } {
 
 	set cbr($id)  [new Module/UW/CBRMH_SRC]
 
-	$node($id) addModule 7 $cbr($id)   1  "CBR"
+	$node($id) addModule 7 $cbr($id)   1  "CBR($id)"
 
 	$node($id) setConnection $cbr($id)   $udp($id)   1
 	set portnum($id) [$udp($id) assignPort $cbr($id) ]
@@ -316,7 +314,7 @@ proc createSinkNode { id } {
 
 	set cbr($id)  [new Module/UW/CBRMH_SINK]
 
-	$node($id) addModule 7 $cbr($id)   1  "CBR"
+	$node($id) addModule 7 $cbr($id)   1  "CBR($id)"
 
 	$node($id) setConnection $cbr($id)   $udp($id)   1
 	set portnum($id) [$udp($id) assignPort $cbr($id) ]
@@ -329,7 +327,7 @@ proc createRelayNode { id } {
 
 	set cbr($id)  [new Module/UW/CBRMH_RELAY]
 
-	$node($id) addModule 7 $cbr($id)   1  "CBR"
+	$node($id) addModule 7 $cbr($id)   1  "CBR($id)"
 
 	$node($id) setConnection $cbr($id)   $udp($id)   1
 	set portnum($id) [$udp($id) assignPort $cbr($id) ]
@@ -339,21 +337,19 @@ proc createRelayNode { id } {
 # Node Creation #
 #################
 # Create here all the nodes you want to network together
-set src_id 0
-createSourceNode $src_id
+createSourceNode $opt(src_id)
 
 for {set id 1} {$id < [expr $opt(nn)-1]} {incr id}  {
 	createRelayNode $id
 }
 
-set sink_id [expr $opt(nn) - 1]
-createSinkNode $sink_id
+createSinkNode $opt(sink_id)
 
 ################################
 # Inter-node module connection #
 ################################
 for { set id 1} {$id < [expr $opt(nn)]} {incr id} {
-	$cbr($src_id) appendtopath [$ipif($id) addr] $portnum($id)
+	$cbr($opt(src_id)) appendtopath [$ipif($id) addr] $portnum($id)
 }
 
 ###################
@@ -379,63 +375,60 @@ for {set id 1} {$id < [expr $opt(nn)]} {incr id}  {
 	$ipr($id) addRoute [$ipif([expr $id - 1]) addr] [$ipif([expr $id - 1]) addr]
 }
 
-##################
-# Node positions #
-##################
-set internode_dist [expr $opt(tot_dist) / ($opt(nn) - 1.0)]
-for {set id 0} {$id < $opt(nn)} {incr id} {
-	set position($id) [new "Position/BM"]
-	$node($id) addPosition $position($id)
-
-	$position($id) setZ_ -40
-	$position($id) setX_ [expr {$id * $internode_dist}]
-	$position($id) setY_ 0
-}
-
 #####################
 # Start/Stop Timers #
 #####################
 for {set i 0} {$i < $opt(nn)} {incr i} {
 	$ns at $opt(starttime)    "$mac($i) start"
-	$ns at [expr $opt(stoptime) + 245]     "$mac($i) stop"
+	$ns at $opt(stoptime)     "$mac($i) stop"
 }
 
-$ns at $opt(starttime)    "$cbr($src_id) start"
-$ns at $opt(stoptime)     "$cbr($src_id) stop"
+$ns at $opt(starttime)    "$cbr($opt(src_id)) start"
+$ns at $opt(starttime)    "$cbr($opt(sink_id)) resetStats"
+$ns at $opt(stoptime)     "$cbr($opt(src_id)) stop"
 
 ###################
 # Final Procedure #
 ###################
 # Define here the procedure to call at the end of the simulation
 proc finish {} {
+	global tf
 	global ns opt outfile
 	global mac propagation phy_data phy_data_sink channel db_manager propagation
 	global node_coordinates
 	global ipr_sink ipr ipif udp cbr phy phy_data_sink
 	global node_stats tmp_node_stats sink_stats tmp_sink_stats
 
-	global src_id sink_id
 	global position
-	global packet_time
+	global packet_time frame_duration
+	global internode_dist
 
+	set src_id $opt(src_id)
+	set sink_id $opt(sink_id)
+	
 	if ($opt(verbose)) {
 		puts "---------------------------------------------------------------------"
 		puts "Simulation summary"
-		puts "src-dst distance\t: $opt(tot_dist) m"
+		puts "src-dst distance\t: $opt(total_dist) m"
+		puts "internode dist.\t\t: $internode_dist m"
+		puts "node depth\t\t: $opt(node_depth) m"
 		puts "number of nodes\t\t: $opt(nn)"
 		puts ""
 		puts "packet size\t\t: $opt(pktsize) byte"
 		puts "cbr period\t\t: $opt(cbr_period) s"
+		puts "cbr source rate\t\t: $opt(target_src_rate) bit/s"
 		puts "ARQ enabled\t\t: $opt(use_arq)"
 		if ($opt(use_arq)) {
-			puts "RX/TX window\t\t: $opt(cbr_window)"
-			puts "Retx timeout\t\t: $opt(cbr_timeout)"
+			puts "RX/TX window\t\t: $opt(winsize)"
+			puts "Retx timeout\t\t: $opt(CBR_timeout)"
 			puts "Use RTT estimate\t: $opt(use_rtt_timeout)"
+			puts "dupACK thresh\t\t: $opt(CBR_dupack_thresh)"
 		}
+		puts "Relays enabled\t\t: $opt(use_relays)"
 
 		puts ""
 		puts "packet time\t: $packet_time s"
-		puts "TDMA frame\t: $opt(frame_duration) s"
+		puts "TDMA frame\t: $frame_duration s"
 		puts "TDMA slots\t: $opt(num_slots)"
 		puts "TDMA guard time\t: $opt(guard_time) s"
 		puts ""
@@ -448,14 +441,6 @@ proc finish {} {
 		puts "CBR header size\t: [$cbr($src_id) getcbrheadersize]"
 		puts "UDP header size\t: [$udp($src_id) getudpheadersize]"
 		puts "IP header size\t: [$ipif($src_id) getipheadersize]"
-		puts "---------------------------------------------------------------------"
-	}
-
-	if ($opt(verbose)) {
-		puts "Node positions (x, y, z)"
-		for {set id 0} {$id < $opt(nn)} {incr id} {
-			puts "Node $id\t: \([$position($id) getX_], [$position($id) getY_], [$position($id) getZ_]\)"
-		}
 		puts "---------------------------------------------------------------------"
 	}
 
@@ -539,7 +524,7 @@ proc finish {} {
 	}
 
 	$ns flush-trace
-	close $opt(tracefile)
+	close $tf
 }
 
 
@@ -551,6 +536,14 @@ if ($opt(verbose)) {
 }
 
 
-$ns at [expr $opt(stoptime) + 250.0]  "finish; $ns halt"
+$ns at [expr $opt(stoptime) + 30]  "finish; $ns halt"
 
 $ns run
+
+# Local Variables:
+# mode: tcl
+# tcl-indent-level: 8
+# tcl-continued-indent-level: 8
+# indent-tabs-mode: t
+# tab-width: 8
+# End:

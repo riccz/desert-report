@@ -1,0 +1,64 @@
+\begin{tikzpicture}
+  \begin{axis}[
+      xlabel={Window size},
+      ylabel={Throughput},
+      xmin=1,
+      xmax=50,
+      ymin=0,
+      ymax=60000,
+      grid=major,
+    ]
+
+    \pgfplotstablesort[
+      sort key=winsize,
+      col sep=comma,
+      trim cells=true
+    ]{\thrwinzero}{ns/thr_win_0.csv}
+    \addplot+[no markers] table[x=winsize,y=throughput] \thrwinzero
+    node[above,pos=0.6,
+      pin={[pin distance=1em]20:{Both zero}}
+    ] {};
+
+    \pgfplotstablesort[
+      sort key=winsize,
+      col sep=comma,
+      trim cells=true
+    ]{\thrwinlowwait}{ns/thr_win_1.csv}
+    \addplot+[no markers] table[x=winsize,y=throughput] \thrwinlowwait
+    node[above,pos=0.6,
+      pin={[pin distance=1em]20:{Low wait}}
+    ] {};
+
+    \pgfplotstablesort[
+      sort key=winsize,
+      col sep=comma,
+      trim cells=true
+    ]{\thrwinhighwait}{ns/thr_win_2.csv}
+    \addplot+[no markers] table[x=winsize,y=throughput] \thrwinhighwait
+    node[above,pos=0.6,
+      pin={[pin distance=1em]20:{High wait}}
+    ] {};
+
+    \pgfplotstablesort[
+      sort key=winsize,
+      col sep=comma,
+      trim cells=true
+    ]{\thrwinlowlisten}{ns/thr_win_3.csv}
+    \addplot+[no markers] table[x=winsize,y=throughput] \thrwinlowlisten
+    node[above,pos=0.6,
+      pin={[pin distance=1em]20:{Low listen}}
+    ] {};
+
+    \pgfplotstablesort[
+      sort key=winsize,
+      col sep=comma,
+      trim cells=true
+    ]{\thrwinhighlisten}{ns/thr_win_4.csv}
+    \addplot+[no markers] table[x=winsize,y=throughput] \thrwinhighlisten
+    node[above,pos=0.6,
+      pin={[pin distance=1em]20:{High listen}}
+    ] {};
+
+      
+  \end{axis}
+\end{tikzpicture}

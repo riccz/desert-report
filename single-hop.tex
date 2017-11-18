@@ -1,9 +1,9 @@
 \section{Single-hop acoustic network}
-The first network consists of two nodes in shallow water equipped with
-HERMES modems. One of them generates packets of constant length
-$L=\SI{1000}{bytes}$, following a Poisson process with constant rate
-$\lambda$; the other node receives the packets and acknowlegeds their
-reception.
+The first simulated network consists of two nodes equipped with HERMES
+modems and placed in shallow water . One of them generates packets of
+constant length $L=\SI{1000}{bytes}$, following a Poisson process with
+constant rate $\lambda$; the other node receives the packets and
+acknowlegeds their reception.
 
 \subsection{Physical layer}
 The two modems are assumed to work at the highest bitrate possible,
@@ -36,15 +36,26 @@ measured values.
 \subsection{Data-link layer}
 The data-link layer implements the CSMA-ALOHA protocol described in
 \cite{proto_issues}: each node listens for a short interval $T_l$
-before transmitting; if the channel is busy it tries again as soon as
+before transmitting, if the channel is busy it tries again as soon as
 the current transmission ends. When a node has more than one packet to
 send it leaves a ``time gap'' of length $T_l$ between them.
 %
-Since there are only two nodes the CSMA-ALOHA can avoid collisions
-between the data packets and the acnowledgments, under the assumption
-that the source always has some packets queued and that it uses a
-sliding window. If the time $T_l$ is constant each node keeps the
-channel busy while it has some packets to transmit.
+The listening time is chosen differently than the paper: instead of
+being uniformly distributed in some interval, it is set to a constant
+value $T_l = \SI{1}{\mu\s}$. This avoids a collision event that would
+occur if the receiving node draws a smaller value than the sending
+node, while the sending node still has packets to transmit.
+
+If the source is always ready to send more packets and the
+retransmission timeout is large enough, this MAC protocol completely
+prevents collisions:
+
+Since there are only two nodes the
+CSMA-ALOHA can avoid collisions between the data packets and the
+acnowledgments, under the assumption that the source always has some
+packets queued and that it uses a sliding window. If the time $T_l$ is
+constant each node keeps the channel busy while it has some packets to
+transmit.
 %
 In the case of the source node this corresponds to sending out packets
 one after the other until the transmit window is full. When the last
@@ -79,7 +90,7 @@ If the transmit and receive window sizes are both set to 1, this
 strategy becomes the Stop-and-Wait ARQ. If the retransmission timeout
 is chosen to be greater than the round trip time (the time between the
 transmission of a packet and the reception of an ACK) there can be no
-collisions, so the nodes can be seen as being linked by two
+collisions, so the nodes can be seen as being linked by two separate
 i.i.d. channels.
 
 In this case the average throughput can be computed.
@@ -124,3 +135,4 @@ The probability of correct frame at \SI{50}{\m} is $p_{fr} \approx
 0.883$, so $(1-p_f) \approx 0.896$, $(1-p_b) \approx 0.997$ and
 $p_{ok} = 0.893$. So the throughput at 50m when S\&W is used should be
 \SI{43.87}{kb/s}.
+

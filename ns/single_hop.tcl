@@ -59,10 +59,11 @@ parse_args $argv opt
 ######################################
 # Flags to enable or disable options #
 ######################################
-setdefault opt(verbose)		0
+setdefault opt(verbose)		1
 setdefault opt(csv_output)      0
 setdefault opt(csv_filename)    "single_hop.csv"
 setdefault opt(trace_files)	0
+setdefault opt(trace_filename)  "single_hop.tr"
 
 #####################
 # Library Loading   #
@@ -80,15 +81,25 @@ load libuwudp.so
 load libuwcbr.so
 load libuwinterference.so
 load libUwmStd.so
-load libUwmStdPhyBpskTracer.so
+
 load libuwphysical.so
 load libuwhermesphy.so
+
+#load libUwmStdPhyBpskTracer.so
+#load libuwcbrtracer.so
 
 #############################
 # NS-Miracle initialization #
 #############################
 set ns [new Simulator]
 $ns use-Miracle
+
+if $opt(trace_files) {
+	set tf [open $opt(trace_filename) w]
+} else {
+	set tf [open "/dev/null" w]
+}
+$ns trace-all $tf
 
 ##################
 # Tcl variables	 #
@@ -149,18 +160,6 @@ $rng seed $opt(seedcbr)
 set rnd_gen [new RandomVariable/Uniform]
 $rnd_gen use-rng $rng
 
-if {$opt(trace_files)} {
-	set opt(tracefilename) "./1hop_ac.tr"
-	set opt(tracefile) [open $opt(tracefilename) w]
-	set opt(cltracefilename) "./1hop_ac.cltr"
-	set opt(cltracefile) [open $opt(tracefilename) w]
-} else {
-	set opt(tracefilename) "/dev/null"
-	set opt(tracefile) [open $opt(tracefilename) w]
-	set opt(cltracefilename) "/dev/null"
-	set opt(cltracefile) [open $opt(cltracefilename) w]
-}
-
 #########################
 # Module Configuration	#
 #########################
@@ -217,7 +216,8 @@ proc createNode { id } {
 	global channel ns cbr position node udp portnum ipr ipif
 	global opt mll mac propagation data_mask interf_data
 
-	set node($id) [$ns create-M_Node $opt(tracefile) $opt(cltracefile)]
+	set node($id) [$ns create-M_Node]
+	
 	set cbr($id)  [new Module/UW/CBR]
 	set udp($id)  [new Module/UW/UDP]
 	set ipr($id)  [new Module/UW/StaticRouting]
@@ -226,7 +226,7 @@ proc createNode { id } {
 	set mac($id)  [new Module/UW/CSMA_ALOHA]
 	set phy($id)  [new Module/UW/HERMES/PHY]
 
-	$node($id) addModule 7 $cbr($id)   1  "CBR"
+	$node($id) addModule 7 $cbr($id)   1  "CBR($id)"
 	$node($id) addModule 6 $udp($id)   1  "UDP"
 	$node($id) addModule 5 $ipr($id)   1  "IPR"
 	$node($id) addModule 4 $ipif($id)  1  "IPF"
@@ -234,14 +234,14 @@ proc createNode { id } {
 	$node($id) addModule 2 $mac($id)   1  "MAC"
 	$node($id) addModule 1 $phy($id)   1  "PHY"
 
-	$node($id) setConnection $cbr($id)   $udp($id)	 0
+	$node($id) setConnection $cbr($id)   $udp($id)	 1
 	set portnum($id) [$udp($id) assignPort $cbr($id) ]
-	$node($id) setConnection $udp($id)   $ipr($id)	 1
-	$node($id) setConnection $ipr($id)   $ipif($id)	 1
-	$node($id) setConnection $ipif($id)  $mll($id)	 1
-	$node($id) setConnection $mll($id)   $mac($id)	 1
-	$node($id) setConnection $mac($id)   $phy($id)	 1
-	$node($id) addToChannel	 $channel    $phy($id)	 1
+	$node($id) setConnection $udp($id)   $ipr($id)	 0
+	$node($id) setConnection $ipr($id)   $ipif($id)	 0
+	$node($id) setConnection $ipif($id)  $mll($id)	 0
+	$node($id) setConnection $mll($id)   $mac($id)	 0
+	$node($id) setConnection $mac($id)   $phy($id)	 0
+	$node($id) addToChannel	 $channel    $phy($id)	 0
 
 	#Set the IP address of the node
 	#$ipif($id) addr "1.0.0.${id}"
@@ -258,7 +258,7 @@ proc createNode { id } {
 
 	$position($id) setX_ [expr $id * $opt(node_dist) / sqrt(2)]
 	$position($id) setY_ [expr $id * $opt(node_dist) / sqrt(2)]
-	$position($id) setZ_ $opt(node_depth)
+	$position($id) setZ_ [expr - $opt(node_depth)]
 
 	#Interference model
 	set interf_data($id)  [new Module/UW/INTERFERENCE]
@@ -275,8 +275,10 @@ proc createNode { id } {
 
 proc createSource { id } {
 	global opt mac src_slot
-
+	global ns node
+	
 	createNode $id
+	#$ns setup-M_node $node($id)
 }
 
 proc createSink { id } {
@@ -329,6 +331,7 @@ $ns at [expr $opt(stoptime) - 3]     "$cbr($opt(src_id)) stop"
 ###################
 # Define here the procedure to call at the end of the simulation
 proc finish {} {
+	global tf
 	global ns opt outfile
 	global mac propagation cbr_sink mac_sink phy_data phy_data_sink channel db_manager propagation
 	global node_coordinates
@@ -433,7 +436,7 @@ proc finish {} {
 	}
 	
 	$ns flush-trace
-	close $opt(tracefile)
+	close $tf
 }
 
 ###################
